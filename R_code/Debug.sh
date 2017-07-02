@@ -1,10 +1,10 @@
-//
-//  Debug.sh
-//  
-//
-//  Created by Yang Hu on 2017/6/20.
-//
-//
+#//
+#//  Debug.sh
+#//  
+#//
+#//  Created by Yang Hu on 2017/6/20.
+#//
+#//
 
 #include <stdio.h>
 
@@ -43,4 +43,25 @@ unlist
 #split column into multiple ones
 str_split_fixed
 
-#remove emypt column
+#remove rows with empty value in column 1
+X <- X[!X[,1]=="",]
+
+#Increase momery
+memory.limit(size=65000)
+
+#---2017-07-01
+#What is the difference between gsub and sub methods in r
+#The g stands for global, as in replace globally (all):
+
+sub('l', '*', "hello")  #=> "he*lo"
+gsub('l', '*',"hello")  #=> "he**o"
+
+#sub(".*") can remove undefined content
+filename <- c("GSM726928_OOC1.CEL.gz","GSM726949_STC2_1.CEL.gz")
+sampleNames <- sub(".*_", "", filename) #=> "OOC1.CEL.gz" "1.CEL.gz"
+sampleNames <- sub(".CEL.gz$", "", sampleNames) #=> "OOC1" "1"
+
+
+#Avoid rbind()/cbind() conversion from numeric to factor
+cbind.data.frame
+
