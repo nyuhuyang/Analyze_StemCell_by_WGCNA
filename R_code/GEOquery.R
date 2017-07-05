@@ -145,10 +145,10 @@ countdata<-countdata[,-1]
 # Obtain CPMs
 myCPM <- cpm(countdata)
 # Which values in myCPM are greater than 0.5?
-thresh <- myCPM > 0.5
+thresh <- myCPM > 1
 table(rowSums(thresh))
 # we would like to keep genes that have at least 2 TRUES in each row of thresh
-keep <- rowSums(thresh) >= 2
+keep <- rowSums(thresh) >= 9
 # Subset the rows of countdata to keep the more highly expressed genes
 myCPM.keep <- myCPM[keep,]
 
@@ -159,22 +159,23 @@ myCPM.keep <- myCPM[keep,]
 expr0 <- DGEList(countdata)
 expr1 <- DGEList(myCPM.keep)
 
-par(mfrow=c(1,3))
+par(mfrow=c(1,2))
+
 # Get log2 counts per million
-   counts0 <- cpm(expr0,log=FALSE)
+#counts0 <- cpm(expr0,log=FALSE)
 logcounts1 <- cpm(expr0,log=TRUE)
 logcounts2 <- cpm(expr1,log=TRUE)
 # Check distributions of samples using boxplots
-boxplot(counts0, xlab="", ylab="counts per million",las=2) # test with all((counts0)>=0)
-abline(h=median(counts0),col="blue")
-title("CPMs (unnormalised)")
+#boxplot(counts0, xlab="", ylab="counts per million",las=2) # test with all((counts0)>=0)
+#abline(h=median(counts0),col="blue")
+#title("CPMs (unnormalised)")
 
 boxplot(logcounts1+5.2, xlab="", ylab="Log2 counts per million",las=2) # test with all((logcounts1+5.2)>0)
 abline(h=median(logcounts1+5.2),col="blue")
 title("logCPMs (unnormalised)")
 
-boxplot(logcounts2+4.75, xlab="", ylab="Log2 counts per million",las=2) # test with all((logcounts1+2)>0)
-abline(h=median(logcounts2+4.75),col="blue")
+boxplot(logcounts2+2, xlab="", ylab="Log2 counts per million",las=2) # test with all((logcounts2+2)>0)
+abline(h=median(logcounts2+2),col="blue")
 title("logCPMs (normalised)")
 
 
@@ -183,7 +184,7 @@ plotMDS(expr0)
 plotMDS(expr1)
 
 #put gene column back
-logcounts <- cbind.data.frame(rownames(logcounts2),logcounts2+4.75) 
+logcounts <- cbind.data.frame(rownames(logcounts2),logcounts2+4) 
 colnames(logcounts)[1] <- "gene_ID"
 
 #merge 1.a and 1.b
@@ -195,11 +196,11 @@ par(mfrow=c(1,1))
 par(oma=c(12,2,0,2))
 boxplot(rnaseq_MicroArrayData, xlab="", ylab="counts per million",
         main = "boxplot for log Counts Per Million of all samples",las=2) # test with all((counts0)>=0)
-abline(h=median(logcounts2+5.1),col="blue")
+abline(h=median(as.matrix(rnaseq_MicroArrayData)),col="blue")
 write.csv(rnaseq_MicroArrayData,"rnaseq_MicroArrayData.csv")
 # =====================================================================================
 # 
-#  1.c overall similarity
+#  2. overall similarity
 # 
 # =====================================================================================
 par(mfrow=c(1,1))
@@ -210,3 +211,6 @@ hc <- hclust(d, method="complete")
 p<-plot(hc,col = "black",cex = 1,xlab="", sub="",
         main="Cluster Dendrogram, method='spearman'")
 
+library(pheatmap)
+pheatmap(c,cex=1.05,
+         main ="Spearman correlation between all samples")
