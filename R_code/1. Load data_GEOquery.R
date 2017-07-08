@@ -9,7 +9,7 @@
 # 
 #  0 check and install all cran and bioconductor packages if necessary
 # 
-############################################################################
+# =====================================================================================
 
 list.of.cran.packages<- c("WGCNA","easypackages","stringr",
                           "dplyr","pheatmap","gridExtra")
@@ -31,10 +31,10 @@ memory.limit(size=25000)
 # 
 #  1.a Load microarray data---stem cell stages
 #  https://kasperdanielhansen.github.io/genbioconductor/html/GEOquery.html (coursera)
-############################################################################
+# =====================================================================================
 
 
-# ###########load processed data (essential)########################################
+# ===========load processed data (essential)============================================
 eList <- getGEO("GSE29397") #it takes some time
 eList
 names(eList)
@@ -176,7 +176,7 @@ dim(anno_MicroArrayData)
 rownames(anno_MicroArrayData) <- anno_MicroArrayData[,"gene_ID"]
 anno_MicroArrayData <- anno_MicroArrayData[,-1] #remove "PROBES"
 
-# #######get gene list that have higher std (top 25%) (essential)################
+# ===========get gene list that have higher std (top 25%) (essential)===========
 # we can find the standard deviation for each chip
 # http://jura.wi.mit.edu/bio/education/bioinfo2007/arrays/array_exercises_1R.html#ratios
 sd = apply(anno_MicroArrayData[,-1], 1, sd) #run sd w/o gene_ID
@@ -189,9 +189,9 @@ Top_Std_gene <-names(sd)[1:(length(sd)*0.25)]
 #  1.b loading Expression data---rnaseq_rowcounts
 #  consult to http://combine-australia.github.io/RNAseq-R/06-rnaseq-day1.html
 #
-# ############################################################################
+# =============================================================================
 
-###############Reading in the data (essential)################################
+#======================Reading in the data (essential)======================
 # Display the current working directory
 getwd();
 # If necessary, change the path below to the directory where the data files are stored. 
@@ -216,7 +216,7 @@ keep <- rowSums(thresh) >= 2
 # Subset the rows of countdata to keep the more highly expressed genes
 myCPM.keep <- myCPM[keep,]
 
-###############DEG visulization (essential)###############################
+#===========DEG visulization (essential)=================================
 # Library sizes and distribution plots
 expr1 <- DGEList(myCPM.keep)
 # Get log2 counts per million
@@ -225,7 +225,7 @@ logcounts2 <- cpm(expr1,log=TRUE)
 
 
 
-# DEG visulization (optional)-------------------------------------------------------------
+# ------------DEG visulization (optional)-------------------------------------------------------------
 # Library sizes and distribution plots
 expr0 <- DGEList(countdata)
 
@@ -253,9 +253,9 @@ title("logCPMs (normalised)")
 # 
 #  1.c merge rnaseq with MicroArrayData
 #  (home made)
-############################################################################
+#=============================================================================
 
-###################merge 1.a and 1.b (essential)###########################
+#=============    merge 1.a and 1.b (essential)======================
 #put gene column back-
 logcounts <- cbind.data.frame(rownames(logcounts2),logcounts2) 
 colnames(logcounts)[1] <- "gene_ID"
@@ -265,14 +265,21 @@ rnaseq_MicroArrayData <- merge(logcounts, anno_MicroArrayData)
 dim(rnaseq_MicroArrayData)
 rownames(rnaseq_MicroArrayData) <- rnaseq_MicroArrayData[,"gene_ID"]
 rnaseq_MicroArrayData <- rnaseq_MicroArrayData[,-1] #remove "gene_ID"
+write.csv(rnaseq_MicroArrayData,"rnaseq_MicroArrayData.csv")
+
+
 par(mfrow=c(1,2))
 par(oma=c(16,2,0,2), cex=1.2)
 boxplot(rnaseq_MicroArrayData_std, xlab="", ylab="log2 counts per million",
         main = "boxplot for log Counts Per Million of all samples",las=2) # test with all((counts0)>=0)
-write.csv(rnaseq_MicroArrayData,"rnaseq_MicroArrayData.csv")
 
-############get gene list that have higher std (top 25%) (essential)############
-rnaseq_MicroArrayData_std <-rnaseq_MicroArrayData[Top_Std_gene,]#from 1.a end
+
+#===========get gene list that have higher std (top 25%) (essential)===========
+all_gene <- rownames(rnaseq_MicroArrayData)
+all_gene %in% Top_Std_gene
+rnaseq_MicroArrayData_std <-rnaseq_MicroArrayData[all_gene %in% Top_Std_gene,]
+#rnaseq_MicroArrayData[Top_Std_gene,] will creat NA
+
 dim(rnaseq_MicroArrayData_std)
 write.csv(rnaseq_MicroArrayData_std,"rnaseq_MicroArrayData_std.csv")
 ############################################################################
