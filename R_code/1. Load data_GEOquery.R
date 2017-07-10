@@ -179,11 +179,19 @@ anno_MicroArrayData <- anno_MicroArrayData[,-1] #remove "PROBES"
 # ===========get gene list that have higher std (top 25%) (essential)===========
 # we can find the standard deviation for each chip
 # http://jura.wi.mit.edu/bio/education/bioinfo2007/arrays/array_exercises_1R.html#ratios
+
 sd = apply(anno_MicroArrayData[,-1], 1, sd) #run sd w/o gene_ID
 sd = sd[order(sd, decreasing=TRUE)]
 Top_Std_gene <-names(sd)[1:(length(sd)*0.25)]
+# ############################################################################
 
 
+# ------------visulization (optional)-------------------------------------------------------------
+sd =    apply(anno_MicroArrayData[,-1], 1, sd) #run sd w/o gene_ID
+median  = apply(anno_MicroArrayData[,-1], 1, median)
+par(mfrow=c(1,1))
+plot(median,sd,xlab="log2(count size)", ylab="standard deviation")
+lines(lowess(median,sd), col="blue")# lowess line (x,y)
 # ############################################################################
 # 
 #  1.b loading Expression data---rnaseq_rowcounts
@@ -225,15 +233,24 @@ logcounts2 <- cpm(expr1,log=TRUE)
 
 
 
-# ------------DEG visulization (optional)-------------------------------------------------------------
+# ------------visulization (optional)-------------------------------------------------------------
 # Library sizes and distribution plots
 expr0 <- DGEList(countdata)
 
-par(mfrow=c(1,3))
-par(oma=c(5,2,2,2))
+
 counts0 <- cpm(expr0,log=FALSE)
 logcounts2 <- cpm(expr1,log=TRUE)
 
+#check the low reads range
+par(mfrow=c(1,3))
+par(oma=c(2,2,2,2))
+
+plot(exprs(eData),cex=.5)
+plot(logcounts1[,1:2], cex=.5)
+plot(logcounts2[,1:2], cex=.5)
+
+par(mfrow=c(1,3))
+par(oma=c(5,2,2,2))
 # Check distributions of samples using boxplots
 # The las argument rotates the axis names
 boxplot(counts0, xlab="", ylab="counts per million",las=2) # test with all((counts0)>=0)
@@ -248,7 +265,13 @@ title("logCPMs (unnormalised)")
 boxplot(logcounts2, xlab="", ylab="Log2 counts per million",las=2) # test with all((logcounts2+2)>0)
 abline(h=median(logcounts2),col="blue")
 title("logCPMs (normalised)")
+#-----Visulaze Mean-variance relationships (optional)-----------------
+sd      = apply(logcounts2, 1, sd)
+median  = apply(logcounts2, 1, median)
+par(mfrow=c(1,1))
 
+plot(median,sd,xlab="log2(count size)", ylab="standard deviation")
+lines(lowess(median,sd), col="blue")# lowess line (x,y)
 ############################################################################
 # 
 #  1.c merge rnaseq with MicroArrayData
