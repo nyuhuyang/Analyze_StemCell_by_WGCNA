@@ -10,13 +10,13 @@
 # 
 # ######################################################################
 
-list.of.cran.packages<- c("easypackages")
+list.of.cran.packages<- c("easypackages","dplyr")
 new.packages <- list.of.cran.packages[!(list.of.cran.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
 library(easypackages)
 
 source("https://bioconductor.org/biocLite.R")
-list.of.bio.packages <- c()
+list.of.bio.packages <- c("DESeq2")
 new.packages <- list.of.bio.packages[!(list.of.bio.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) biocLite(new.packages)
 
@@ -42,22 +42,21 @@ if (Sys.info()[['sysname']]=="Windows"){
 #put gene column back-
 rld <- readRDS("rld")
 rnaseq <- assay(rld)
-anno <- read.csv("anno")
-anno_MicroArrayData <- read.csv("anno_MicroArrayData",row.names = 1)
-
 rnaseq <- cbind.data.frame(rownames(rnaseq),rnaseq) 
 colnames(rnaseq)[1] <- "gene_ID"
+
+anno <- read.csv("anno")
+
+anno_MicroArrayData <- read.csv("anno_MicroArrayData",row.names = 1)
 
 dim(rnaseq)
 dim(anno_MicroArrayData)
 
-rnaseq_MicroArrayData <- merge(rnaseq, anno_MicroArrayData)
+rnaseq_MicroArrayData <- inner_join(rnaseq, anno_MicroArrayData,by ="gene_ID")
 dim(rnaseq_MicroArrayData)
-rownames(rnaseq_MicroArrayData) <- rnaseq_MicroArrayData[,"gene_ID"]
-rnaseq_MicroArrayData <- rnaseq_MicroArrayData[,-1] #remove "gene_ID"
 write.csv(rnaseq_MicroArrayData,"rnaseq_MicroArrayData.csv")
-
-
+rownames(rnaseq_MicroArrayData) <-rnaseq_MicroArrayData$gene_ID
+rnaseq_MicroArrayData <- rnaseq_MicroArrayData[,-1]
 
 
 #===========get gene list that have higher std (top 25%) (required)===========
