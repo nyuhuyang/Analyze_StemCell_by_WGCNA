@@ -27,7 +27,7 @@ libraries(list.of.bio.packages,list.of.cran.packages)
 ########################################################################################
 #
 # 5.1 WGCNA: Data input, cleaning and pre-processing
-#  https://labs.genetics.ucla.edu/horvath/CoexpressionNetwork/Rpackages/WGCNA/Tutorials/FemaleLiver-01-dataInput.pdf
+#  https://labs.genetics.ucla.edu/horvath/htdocs/CoexpressionNetwork/Rpackages/WGCNA/Tutorials/
 #
 ########################################################################################
 #====5.1.1 Reading in the data (required)=============================
@@ -46,6 +46,13 @@ options(stringsAsFactors = FALSE)
 rnaseq_MicroArrayData = read.csv("rnaseq_MicroArrayData.csv",row.names = 1)
 #colnames are changed, be careful. 
 #space is replaced by "." ; "x" is add in front of number
+
+#detach two database
+select <- list(A=c(1:9),B=c(10:ncol(rnaseq_MicroArrayData)))
+select
+rnaseq_MicroArrayData <- rnaseq_MicroArrayData[,select$A]
+#or
+rnaseq_MicroArrayData <- rnaseq_MicroArrayData[,select$B]
 
 # Take a quick look at what is in the data set:
 dim(rnaseq_MicroArrayData)
@@ -93,9 +100,9 @@ par(mar = c(0,4,2,0))
 plot(sampleTree, main = "Sample clustering to detect outliers", sub="", xlab="", cex.lab = 1.5, 
      cex.axis = 1.5, cex.main = 2)
 
-#----- remove outlier (Alternative)------------------------------------
+#======= remove outlier (required)==========================
 # Plot a line to show the cut
-abline(h = 150, col = "red")
+abline(h = 0, col = "red")
 # Determine cluster under the line
 clust = cutreeStatic(sampleTree, cutHeight = 15, minSize = 10)
 table(clust)
@@ -109,9 +116,12 @@ nSamples = nrow(datExpr)
 
 #====5.1.3  Loading clinical trait data (required)===================
 traitData = read.csv("ClinicalTraits.csv",row.names = 1)
+
 dim(traitData)
 head(traitData)
 
+#select two database
+traitData <-traitData[select$B,]
 # remove columns that hold information we do not need.
 allTraits = traitData
 dim(allTraits)
@@ -171,7 +181,7 @@ lnames
 # analysis of network topology
 
 # Choose a set of soft-thresholding powers
-powers = c(c(1:10), seq(from = 12, to=20, by=2))
+powers = c(c(1:10), seq(from = 4, to=20, by=2))
 # Call the network topology analysis function
 sft = pickSoftThreshold(datExpr, powerVector = powers, verbose = 5)
 # Error in datk[c(startG:endG), ] = foreach(t = actualThreads, .combine = rbind) %dopar%  : 
@@ -188,7 +198,7 @@ plot(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
 text(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
      labels=powers,cex=cex1,col="red")
 # this line corresponds to using an R^2 cut-off of h
-abline(h=0.0,col="red")
+abline(h=0.9,col="red")
 # Mean connectivity as a function of the soft-thresholding power
 plot(sft$fitIndices[,1], sft$fitIndices[,5],
      xlab="Soft Threshold (power)",ylab="Mean Connectivity", type="n",
@@ -528,8 +538,7 @@ geneInfo0 = data.frame(
 # Order modules by their significance for Protocol
 modOrder = order(-abs(cor(MEs, Protocol, use = "p")));
 # Add module membership information in the chosen order
-for (mod in 1:ncol(geneModuleMembership))
-{
+for (mod in 1:ncol(geneModuleMembership)){
         oldNames = names(geneInfo0)
         geneInfo0 = data.frame(geneInfo0, geneModuleMembership[, modOrder[mod]], 
                                MMPvalue[, modOrder[mod]]);
@@ -587,12 +596,12 @@ Attributes[grep("link",Attributes[,1]),]
 mapping <- getBM(attributes = c("ensembl_gene_id", "hgnc_symbol"), mart = ensembl)
 head(mapping)
 
-#annot = read.csv(file = "GeneAnnotation.csv");
+annot = read.csv(file = "GeneAnnotation.csv");
 #  Match probes in the data set to the probe IDs in the annotation file 
 #probes = names(datExpr)
 #probes2annot = match(probes, annot$substanceBXH)
 #  Get the corresponding Locuis Link IDs
-#allLLIDs = annot$LocusLinkID[probes2annot];
+allLLIDs = annot$LocusLinkID[probes2annot];
 #   $ Choose interesting modules
 intModules = c("brown", "red", "salmon")
 for (module in intModules)
