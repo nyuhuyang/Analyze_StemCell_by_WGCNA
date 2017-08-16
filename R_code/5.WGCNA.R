@@ -80,11 +80,11 @@ gsg = goodSamplesGenes(datExpr0, verbose = 3)
 gsg$allOK
 
 
-#=====================================================================================
+#-------------------------------------------------------------------------
 #
 #  Code chunk5.1.1-4
 #
-#=====================================================================================
+#-------------------------------------------------------------------------
 
 
 if (!gsg$allOK)
@@ -125,25 +125,25 @@ plot(sampleTree, main = "Sample clustering to detect outliers", sub="", xlab="",
 
 
 # Plot a line to show the cut
-abline(h = 100, col = "red")
+abline(h = 200, col = "red")
 # Determine cluster under the line
-clust = cutreeStatic(sampleTree, cutHeight = 15, minSize = 10)
+clust = cutreeStatic(sampleTree, cutHeight = 200, minSize = 10)
 table(clust)
 # clust 1 contains the samples we want to keep.
-keepSamples = (clust==0)
+keepSamples = (clust==1)
 datExpr = datExpr0[keepSamples, ]
 nGenes = ncol(datExpr)
 nSamples = nrow(datExpr)
 #extract the top 5000 most variant genes for WGCNA studies.
 #transpose matrix to correlate genes in the following
-datExpr = datExpr[,order(apply(datExpr,2,mad), decreasing = T)[1:5000]]
+#datExpr = datExpr[,order(apply(datExpr,2,mad), decreasing = T)[1:5000]]
 
 
-#=====================================================================================
+#-------------------------------------------------------------------------
 #
 #  Code chunk5.1.1-7
 #
-#=====================================================================================
+#-------------------------------------------------------------------------
 
 
 traitData = read.csv("ClinicalTraits.csv")
@@ -165,11 +165,11 @@ rownames(datTraits) = allTraits[traitRows, 1]
 collectGarbage()
 
 
-#=====================================================================================
+#-------------------------------------------------------------------------
 #
 #  Code chunk5.1.1-8
 #
-#=====================================================================================
+#-------------------------------------------------------------------------
 
 
 # Re-cluster samples
@@ -218,8 +218,8 @@ lnames
 #=====================================================================================
 
 
-# Choose a set of soft-thresholding powers
-powers = c(c(1:10), seq(from = 12, to=20, by=2))
+# Choose a set of soft-thresholding powers ?????????????????????
+powers = c(c(1:10), seq(from = 12, to=20, by=2)) #takes long time
 # Call the network topology analysis function
 sft = pickSoftThreshold(datExpr, powerVector = powers, verbose = 5)
 # Plot the results:
@@ -233,7 +233,7 @@ plot(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
 text(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
      labels=powers,cex=cex1,col="red")
 # this line corresponds to using an R^2 cut-off of h
-abline(h=0.70,col="red")
+abline(h=0.90,col="red")
 # Mean connectivity as a function of the soft-thresholding power
 plot(sft$fitIndices[,1], sft$fitIndices[,5],
      xlab="Soft Threshold (power)",ylab="Mean Connectivity", type="n",
@@ -247,7 +247,7 @@ text(sft$fitIndices[,1], sft$fitIndices[,5], labels=powers, cex=cex1,col="red")
 #
 #=====================================================================================
 # Constructing the gene network and identifying modules is now a simple function call:
-
+#?????????????????????
 net = blockwiseModules(datExpr, power = 6,
                        TOMType = "unsigned", minModuleSize = 30,
                        reassignThreshold = 0, mergeCutHeight = 0.25,
@@ -265,7 +265,7 @@ table(net$colors)
 #=====================================================================================
 
 
-# open a graphics window
+# ??????????????????
 
 # Convert labels to colors for plotting
 mergedColors = labels2colors(net$colors)
@@ -290,6 +290,9 @@ geneTree = net$dendrograms[[1]]
 save(MEs, moduleLabels, moduleColors, geneTree, 
      file = "Vassena-02-networkConstruction-auto.RData")
 
+
+#====> # jump to chunk5.1.6-4
+
 #=====5.1.2b Step-by-step network construction and module detection======
 #=====================================================================================
 #
@@ -303,7 +306,7 @@ lnames = load(file = "Vassena-01-dataInput.RData")
 lnames
 #extract the top 5000 most variant genes for WGCNA studies.
 #transpose matrix to correlate genes in the following
-datExpr = datExpr[,order(apply(datExpr,2,mad), decreasing = T)[1:5000]]
+#datExpr = datExpr[,order(apply(datExpr,2,mad), decreasing = T)[1:5000]]
 
 #=====================================================================================
 #
@@ -491,7 +494,7 @@ lnames = load(file = "Vassena-01-dataInput.RData")
 lnames
 #extract the top 5000 most variant genes for WGCNA studies.
 #transpose matrix to correlate genes in the following
-datExpr = datExpr[,order(apply(datExpr,2,mad), decreasing = T)[1:5000]]
+#datExpr = datExpr[,order(apply(datExpr,2,mad), decreasing = T)[1:5000]]
 
 #=====================================================================================
 #
@@ -1088,8 +1091,6 @@ vis = exportNetworkToVisANT(modTOM[top, top],
 #  Code chunk5.1.6-4
 #
 #=====================================================================================
-
-
 # Recalculate topological overlap if needed
 TOM = TOMsimilarityFromExpr(datExpr, power = 6)
 # Read in the annotation file
