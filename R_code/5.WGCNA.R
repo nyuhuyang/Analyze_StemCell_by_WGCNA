@@ -136,7 +136,7 @@ nGenes = ncol(datExpr)
 nSamples = nrow(datExpr)
 #extract the top 5000 most variant genes for WGCNA studies.
 #transpose matrix to correlate genes in the following
-#datExpr = datExpr[,order(apply(datExpr,2,mad), decreasing = T)[1:5000]]
+datExpr = datExpr[,order(apply(datExpr,2,mad), decreasing = T)[1:5000]]
 
 
 #-------------------------------------------------------------------------
@@ -233,7 +233,7 @@ plot(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
 text(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
      labels=powers,cex=cex1,col="red")
 # this line corresponds to using an R^2 cut-off of h
-abline(h=0.90,col="red")
+abline(h=0.60,col="red")
 # Mean connectivity as a function of the soft-thresholding power
 plot(sft$fitIndices[,1], sft$fitIndices[,5],
      xlab="Soft Threshold (power)",ylab="Mean Connectivity", type="n",
@@ -248,7 +248,8 @@ text(sft$fitIndices[,1], sft$fitIndices[,5], labels=powers, cex=cex1,col="red")
 #=====================================================================================
 # Constructing the gene network and identifying modules is now a simple function call:
 #?????????????????????
-net = blockwiseModules(datExpr, power = 6,
+net = blockwiseModules(datExpr, 
+                       power = 6,#power = 6 soft-thresholding power for network construction.
                        TOMType = "unsigned", minModuleSize = 30,
                        reassignThreshold = 0, mergeCutHeight = 0.25,
                        numericLabels = TRUE, pamRespectsDendro = FALSE,
@@ -290,8 +291,8 @@ geneTree = net$dendrograms[[1]]
 save(MEs, moduleLabels, moduleColors, geneTree, 
      file = "Vassena-02-networkConstruction-auto.RData")
 
-
 #====> # jump to chunk5.1.6-4
+
 
 #=====5.1.2b Step-by-step network construction and module detection======
 #=====================================================================================
@@ -344,7 +345,7 @@ text(sft$fitIndices[,1], sft$fitIndices[,5], labels=powers, cex=cex1,col="red")
 #
 #=====================================================================================
 
-
+#????????????:(1) Co-expression similarity and adjacency
 softPower = 6
 adjacency = adjacency(datExpr, power = softPower)
 
@@ -355,7 +356,7 @@ adjacency = adjacency(datExpr, power = softPower)
 #
 #=====================================================================================
 
-
+# ????????????????????????????????????,Turn adjacency into topological overlap
 # Turn adjacency into topological overlap
 TOM = TOMsimilarity(adjacency)
 dissTOM = 1-TOM
@@ -367,7 +368,7 @@ dissTOM = 1-TOM
 #
 #=====================================================================================
 
-
+#??????????????????
 # Call the hierarchical clustering function
 geneTree = hclust(as.dist(dissTOM), method = "average")
 # Plot the resulting clustering tree (dendrogram)
@@ -382,7 +383,7 @@ plot(geneTree, xlab="", sub="", main = "Gene clustering on TOM-based dissimilari
 #
 #=====================================================================================
 
-
+#?????????????????????dynamicTreeCut
 # We like large modules, so we set the minimum module size relatively high:
 minModuleSize = 30
 # Module identification using dynamic tree cut:
@@ -398,7 +399,7 @@ table(dynamicMods)
 #
 #=====================================================================================
 
-
+#??????????????????
 # Convert numeric lables into colors
 dynamicColors = labels2colors(dynamicMods)
 table(dynamicColors)
@@ -416,7 +417,9 @@ plotDendroAndColors(geneTree, dynamicColors, "Dynamic Tree Cut",
 #
 #=====================================================================================
 
-
+#?????????????????????????????????,Merging of modules whose expression profiles are very similar
+#?????????????????????leaf???????????????,??????????????????,
+#?????????????????????????????????????????????????????????,???????????????????????????modules????????????
 # Calculate eigengenes
 MEList = moduleEigengenes(datExpr, colors = dynamicColors)
 MEs = MEList$eigengenes
@@ -436,7 +439,7 @@ plot(METree, main = "Clustering of module eigengenes",
 #
 #=====================================================================================
 
-
+#?????????75%????????????????????????
 MEDissThres = 0.25
 # Plot the cut line into the dendrogram
 abline(h=MEDissThres, col = "red")
@@ -455,15 +458,17 @@ mergedMEs = merge$newMEs
 #=====================================================================================
 
 
-
+#???????????????(Dynamic Tree Cut)????????????(Merged dynamic)????????????
 #pdf(file = "Plots/geneDendro-3.pdf", wi = 9, he = 6)
 plotDendroAndColors(geneTree, cbind(dynamicColors, mergedColors),
                     c("Dynamic Tree Cut", "Merged dynamic"),
                     dendroLabels = FALSE, hang = 0.03,
                     addGuide = TRUE, guideHang = 0.05)
 #dev.off()
-
-
+#??????????????????????????????
+plotDendroAndColors(geneTree,mergedColors,"Merged dynamic",
+                    dendroLabels = FALSE, hang = 0.03,
+                    addGuide = TRUE, guideHang = 0.05)
 #=====================================================================================
 #
 #  Code chunk5.1.2b-11
@@ -479,6 +484,8 @@ moduleLabels = match(moduleColors, colorOrder)-1
 MEs = mergedMEs
 # Save module colors and labels for use in subsequent parts
 save(MEs, moduleLabels, moduleColors, geneTree, file = "Vassena-02-networkConstruction-stepByStep.RData")
+
+#===> jump to chunk5.1.6-2
 
 #===5.1.2c Dealing with large datasets: block-wise network construction and module detection====
 
@@ -933,6 +940,9 @@ lnames = load(file = "Vassena-01-dataInput.RData")
 lnames
 # Load network data saved in the second part.
 lnames = load(file = "Vassena-02-networkConstruction-auto.RData")
+#or----------------
+lnames = load(file = "Vassena-02-networkConstruction-stepByStep.RData")
+
 lnames
 nGenes = ncol(datExpr)
 nSamples = nrow(datExpr)
@@ -944,7 +954,7 @@ nSamples = nrow(datExpr)
 #
 #=====================================================================================
 
-
+# ???????????????????????????
 # Calculate topological overlap anew: this could be done more efficiently by saving the TOM
 # calculated during module detection, but let us do it again here.
 dissTOM = 1-TOMsimilarityFromExpr(datExpr, power = 6)
@@ -965,7 +975,7 @@ TOMplot(plotTOM, geneTree, moduleColors, main = "Network heatmap plot, all genes
 #
 #=====================================================================================
 
-
+#????????????1000?????????????????????
 nSelect = 400
 # For reproducibility, we set the random seed
 set.seed(10)
@@ -993,14 +1003,15 @@ TOMplot(plotDiss, selectTree, selectColors, main = "Network heatmap plot, select
 # Recalculate module eigengenes
 MEs = moduleEigengenes(datExpr, moduleColors)$eigengenes
 # Isolate weight from the clinical traits
-weight = as.data.frame(datTraits$weight_g)
-names(weight) = "weight"
+#weight = as.data.frame(datTraits$weight_g)
+#names(weight) = "weight"
 # Add the weight to existing module eigengenes
-MET = orderMEs(cbind(MEs, weight))
+#MET = orderMEs(cbind(MEs, weight))
+MET = orderMEs(MEs)
 # Plot the relationships among the eigengenes and the trait
 
 par(cex = 0.9)
-plotEigengeneNetworks(MET, "", marDendro = c(0,4,1,2), marHeatmap = c(3,4,1,2), cex.lab = 0.8, xLabelsAngle
+plotEigengeneNetworks(MET, "Eigengene adjacency heatmap", marDendro = c(0,4,1,2), marHeatmap = c(3,4,1,2), cex.lab = 0.8, xLabelsAngle
                       = 90)
 
 
@@ -1094,14 +1105,14 @@ vis = exportNetworkToVisANT(modTOM[top, top],
 # Recalculate topological overlap if needed
 TOM = TOMsimilarityFromExpr(datExpr, power = 6)
 # Read in the annotation file
-annot = read.csv(file = "GeneAnnotation.csv")
+#annot = read.csv(file = "GeneAnnotation.csv")
 # Select modules
 modules = c("brown", "red")
 # Select module probes
 probes = names(datExpr)
 inModule = is.finite(match(moduleColors, modules))
 modProbes = probes[inModule]
-modGenes = annot$gene_symbol[match(modProbes, annot$substanceBXH)]
+#modGenes = annot$gene_symbol[match(modProbes, annot$substanceBXH)]
 # Select the corresponding Topological Overlap
 modTOM = TOM[inModule, inModule]
 dimnames(modTOM) = list(modProbes, modProbes)
@@ -1112,8 +1123,9 @@ cyt = exportNetworkToCytoscape(modTOM,
                                weighted = TRUE,
                                threshold = 0.02,
                                nodeNames = modProbes,
-                               altNodeNames = modGenes,
+                               #altNodeNames = modGenes,
                                nodeAttr = moduleColors[inModule])
+#===> jump to chunk5.1.5-1
 
 ########################################################################################
 #
