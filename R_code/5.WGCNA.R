@@ -13,17 +13,17 @@
 
 ########################################################################
 #
-#  0 check and install all cran and bioconductor packages if necessary
+#  0 preparation and parameter adjustion
 # 
 # ######################################################################
 
-list.of.cran.packages<- c("easypackages","WGCNA")
+list.of.cran.packages<- c("easypackages")
 new.packages <- list.of.cran.packages[!(list.of.cran.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
 library(easypackages)
 
 source("https://bioconductor.org/biocLite.R")
-list.of.bio.packages <- c()
+list.of.bio.packages <- c("WGCNA")
 new.packages <- list.of.bio.packages[!(list.of.bio.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) biocLite(new.packages)
 
@@ -47,13 +47,18 @@ options(stringsAsFactors = FALSE)
 if (!is.na(Sys.getenv("RSTUDIO", unset = NA))) disableWGCNAThreads()
 if (is.na(Sys.getenv("RSTUDIO", unset = NA)))  enableWGCNAThreads()
 
+#extract the top 5000 most variant genes for WGCNA studies.
+#set up the extract
+extract <- TRUE
+#extract <- FALSE
+
 ########################################################################################
 #
 # 5.1 Network analysis of expression data from XX:
 #  finding modules related to Cell.Stage
 #
 #  https://labs.genetics.ucla.edu/horvath/htdocs/CoexpressionNetwork/Rpackages/WGCNA/Tutorials/
-#
+#  labs.genetics.ucla.edu/horvath/CoexpressionNetwork/Rpackages/WGCNA/faq.html
 ########################################################################################
 #====5.1.1 Data input and cleaning (required)=============================
 
@@ -153,7 +158,9 @@ keepSamples = (clust==1)
 datExpr = Vassena.Data[keepSamples, ]
 nGenes = ncol(datExpr)
 nSamples = nrow(datExpr)
-
+#extract the top 5000 most variant genes for WGCNA studies.
+#transpose matrix to correlate genes in the following
+if(extract==TRUE){datExpr = datExpr[,order(apply(datExpr,2,mad), decreasing = T)[1:5000]]}
 
 
 #-------------------------------------------------------------------------
@@ -196,11 +203,13 @@ collectGarbage()
 # Re-cluster samples
 sampleTree2 = hclust(dist(datExpr), method = "average")
 # Convert traits to a color representation: white means low, red means high, grey means missing entry
-traitColors = numbers2colors(datTraits$Cell.Stage, signed = FALSE)
+traitColors = numbers2colors(datTraits, signed = FALSE)
 #Error in numbers2colors(datTraits[, "Cell.Stage"], signed = FALSE) :
 #'x' must be numeric. For a factor, please use as.numeric(x) in the call.
 
 # Plot the sample dendrogram and the colors underneath.
+par(mfrow = c(1,1))
+par(mar = c(0,5,0,0))
 plotDendroAndColors(sampleTree2, traitColors,
                     groupLabels = names(datTraits), 
                     main = "Sample dendrogram and trait heatmap")
@@ -239,7 +248,7 @@ lnames = load(file = "Vassena-01-dataInput.RData")
 lnames
 #extract the top 5000 most variant genes for WGCNA studies.
 #transpose matrix to correlate genes in the following
-datExpr = datExpr[,order(apply(datExpr,2,mad), decreasing = T)[1:5000]]
+if(extract==TRUE){datExpr = datExpr[,order(apply(datExpr,2,mad), decreasing = T)[1:5000]]}
 #=====================================================================================
 #
 #  Code chunk5.1.2a-2
@@ -262,15 +271,16 @@ plot(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
 text(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
      labels=powers,cex=cex1,col="red")
 # this line corresponds to using an R^2 cut-off of h
-abline(h=0.90,col="red")
+abline(h=0.60,col="red")
 # Mean connectivity as a function of the soft-thresholding power
 plot(sft$fitIndices[,1], sft$fitIndices[,5],
      xlab="Soft Threshold (power)",ylab="Mean Connectivity", type="n",
      main = paste("Mean connectivity"))
 text(sft$fitIndices[,1], sft$fitIndices[,5], labels=powers, cex=cex1,col="red")
-#chose power for signed networks 
+#chose power for Unsigned and signed hybrid networks networks 
+#https://labs.genetics.ucla.edu/horvath/CoexpressionNetwork/Rpackages/WGCNA/faq.html
 cuts <- c(0, 20, 30, 40,60, Inf)
-chose.power <- c(20, 18,16,14,12)
+chose.power <- c(10, 9,8,7,6)
 power <- chose.power[findInterval(nrow(datExpr), cuts)]
 power
 
@@ -341,7 +351,7 @@ lnames = load(file = "Vassena-01-dataInput.RData")
 lnames
 #extract the top 5000 most variant genes for WGCNA studies.
 #transpose matrix to correlate genes in the following
-datExpr = datExpr[,order(apply(datExpr,2,mad), decreasing = T)[1:5000]]
+if(extract==TRUE){datExpr = datExpr[,order(apply(datExpr,2,mad), decreasing = T)[1:5000]]}
 
 #=====================================================================================
 #
@@ -365,19 +375,19 @@ plot(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
 text(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
      labels=powers,cex=cex1,col="red")
 # this line corresponds to using an R^2 cut-off of h
-abline(h=0.8,col="red")
+abline(h=0.7,col="red")
 # Mean connectivity as a function of the soft-thresholding power
 plot(sft$fitIndices[,1], sft$fitIndices[,5],
      xlab="Soft Threshold (power)",ylab="Mean Connectivity", type="n",
      main = paste("Mean connectivity"))
 text(sft$fitIndices[,1], sft$fitIndices[,5], labels=powers, cex=cex1,col="red")
 
-#chose soft power threshold
+#chose power for Unsigned and signed hybrid networks networks 
+#https://labs.genetics.ucla.edu/horvath/CoexpressionNetwork/Rpackages/WGCNA/faq.html
 cuts <- c(0, 20, 30, 40,60, Inf)
-chose.power <- c(20, 18,16,14,12)
-softPower <- chose.power[findInterval(nrow(datExpr), cuts)]
-softPower
-
+chose.power <- c(10, 9,8,7,6)
+power <- chose.power[findInterval(nrow(datExpr), cuts)]
+power
 #=====================================================================================
 #
 #  Code chunk5.1.2b-3
@@ -389,22 +399,21 @@ S <- 0.5 + 0.5*cor(datExpr, method="spearman") #Sij = 0.5 + 0.5 × cor(i,j)
 
 #????????????:(1) Co-expression similarity and adjacency
 #built adjacency matrices for each dataset using a soft power threshold of 60
-adjacency = adjacency.fromSimilarity(S, power = softPower,type = "signed") #type = "signed"!
-
+adjacency = adjacency.fromSimilarity(S, power = power,type = "signed") #type = "signed"! #power =softPower
+SubGeneNames <-rownames(adjacency)
 
 #=====================================================================================
 #
-#  Code chunk5.1.2b-4
+#  Code chunk5.1.2b-4f
 # https://www.researchgate.net/post/What_do_adjacency_matrix_and_Topology_Overlap_Matrix_from_WGCNA_package_tell_about_the_data
 #=====================================================================================
 # To minimize effects of noise and spurious associations
 # ????????????????????????????????????,Turn adjacency into topological overlap
 # calculate the corresponding dissimilarity
 TOM = TOMsimilarity(adjacency)
-rownames(TOM) <- rownames(adjacency)
-colnames(TOM) <- colnames(adjacency)
+rownames(TOM) <- SubGeneNames
+colnames(TOM) <- SubGeneNames #same like abov
 dissTOM = 1-TOM
-
 
 #=====================================================================================
 #
@@ -532,6 +541,21 @@ MEs = mergedMEs
 # Save module colors and labels for use in subsequent parts
 save(MEs, moduleLabels, moduleColors, geneTree, file = "Vassena-02-networkConstruction-stepByStep.RData")
 
+#Extract modules
+module_colors <- setdiff(unique(mergedColors), "grey")
+for (color in module_colors){
+        module=SubGeneNames[which(mergedColors==color)]
+        write.table(module, paste("Vassena.module_",color, ".txt",sep=""), sep="\t", row.names=FALSE, col.names=FALSE,quote=FALSE)
+        
+}
+#Look at expression patterns of these genes, as they are clustered
+
+module.order <- unlist(tapply(1:ncol(datExpr),as.factor(mergedColors),I)) #dynamicColors
+m<-t(t(datExpr[,module.order])/apply(datExpr[,module.order],2,max))
+par(mfrow = c(1,1))
+par(mar = c(7,2,1,1))
+cex1 = 0.9
+heatmap(t(m),zlim=c(0,1),col=gray.colors(100),Rowv=NA,Colv=NA,labRow=NA,scale="none",RowSideColors=mergedColors[module.order])
 #===> jump to chunk5.1.6-2
 
 #===5.1.2c Dealing with large datasets: block-wise network construction and module detection====
@@ -578,7 +602,12 @@ plot(sft$fitIndices[,1], sft$fitIndices[,5],
      xlab="Soft Threshold (power)",ylab="Mean Connectivity", type="n",
      main = paste("Mean connectivity"))
 text(sft$fitIndices[,1], sft$fitIndices[,5], labels=powers, cex=cex1,col="red")
-
+#chose power for Unsigned and signed hybrid networks networks 
+#https://labs.genetics.ucla.edu/horvath/CoexpressionNetwork/Rpackages/WGCNA/faq.html
+cuts <- c(0, 20, 30, 40,60, Inf)
+chose.power <- c(10, 9,8,7,6)
+power <- chose.power[findInterval(nrow(datExpr), cuts)]
+power
 
 #=====================================================================================
 #
@@ -588,7 +617,7 @@ text(sft$fitIndices[,1], sft$fitIndices[,5], labels=powers, cex=cex1,col="red")
 
 
 bwnet = blockwiseModules(datExpr, maxBlockSize = 2000,
-                         power = 6, TOMType = "signed", minModuleSize = 30,
+                         power = power, TOMType = "signed", minModuleSize = 30,
                          reassignThreshold = 0, mergeCutHeight = 0.25,
                          numericLabels = TRUE,
                          saveTOMs = TRUE,
@@ -701,7 +730,7 @@ nSamples = nrow(datExpr)
 # Recalculate MEs with color labels
 MEs0 = moduleEigengenes(datExpr, moduleColors)$eigengenes
 MEs = orderMEs(MEs0)
-moduleTraitCor = cor(MEs, datTraits, use = "p",method = "spearman")
+moduleTraitCor = cor(MEs, datTraits, use = "p") #method = "spearman"
 #Remove columns from dataframe where some of values are NA
 moduleTraitCor <- moduleTraitCor[ , apply(moduleTraitCor, 2, function(x) !any(is.na(x)))]
 
@@ -779,30 +808,23 @@ par(mfrow = c(1,1))
 verboseScatterplot(abs(geneModuleMembership[moduleGenes, column]),
                    abs(geneTraitSignificance[moduleGenes, 1]),
                    xlab = paste("Module Membership in", module, "module"),
-                   ylab = "Gene significance for body weight",
+                   ylab = "Gene significance for cell stage",
                    main = paste("Module membership vs. gene significance\n"),
                    cex.main = 1.2, cex.lab = 1.2, cex.axis = 1.2, col = "turquoise") #yellow
-
 
 #=====================================================================================
 #
 #  Code chunk5.1.3-6
 #
 #=====================================================================================
-
-
 names(datExpr)
-
 
 #=====================================================================================
 #
 #  Code chunk5.1.3-7
 #
 #=====================================================================================
-
-
 names(datExpr)[moduleColors=="turquoise"]
-
 
 #---------------------------------------------------------------#
 #
@@ -857,8 +879,6 @@ geneInfo = geneInfo0[geneOrder, ]
 #  Code chunk5.1.3-10
 #
 #=====================================================================================
-
-
 write.csv(geneInfo, file = "geneInfo.csv")
 
 #====5.1.4 Interfacing network analysis with other data such as functional annotation and gene ontology  (required)=============================
@@ -883,19 +903,31 @@ lnames
 #=====================================================================================
 #
 #  Code chunk5.1.4-2
-#
+#  consider Code chunk5.1.3-8
 #=====================================================================================
+allgenes = names(datExpr)
+#library(biomaRt)
+# downlaod annotationfrom biomAT
+#mart <- useMart("ensembl")
+#ensembl <- useDataset("hsapiens_gene_ensembl", mart)
+#annot <-getBM(attributes = c("ensembl_gene_id", #Gene stable ID
+#                     "external_gene_name", #Gene name
+#                     "go_id",   #GO term accession
+#                     "affy_hugene_1_0_st_v1"), #AFFY HuGene 1 0 st v1
+#      filters = "external_gene_name", values = allgenes,  #save time with filter
+#      mart = ensembl)
 
-
-# Read in the probe annotation
-annot = read.csv(file = "GeneAnnotation.csv")
-# Match probes in the data set to the probe IDs in the annotation file 
-probes = names(datExpr)
-probes2annot = match(probes, annot$substanceBXH)
-# Get the corresponding Locuis Link IDs
-allLLIDs = annot$LocusLinkID[probes2annot]
+# Read in the annotation
+annot = read.csv(file = "Human_GeneAnnotation.csv")
+# Match probes in the data set to the gene IDs in the annotation file 
+gene2annot = match(allgenes, annot$Gene.name)
+gene2annot <- gene2annot[!is.na(gene2annot)] #Remove all NA values from a vector
+# Get the corresponding GO IDs
+allLLIDs = annot$GO.term.accession[gene2annot] 
+allLLIDs <- allLLIDs[allLLIDs !=""] #Remove the empty element in the vector
 # $ Choose interesting modules
-intModules = c("brown", "red", "salmon")
+#intModules = c("brown", "red", "salmon")
+intModules = substring(names(MEs), 3)
 for (module in intModules)
 {
         # Select module probes
@@ -903,12 +935,12 @@ for (module in intModules)
         # Get their entrez ID codes
         modLLIDs = allLLIDs[modGenes]
         # Write them into a file
-        fileName = paste("LocusLinkIDs-", module, ".txt", sep="")
+        fileName = paste("Vassena.ensembl-", module, ".txt", sep="")
         write.table(as.data.frame(modLLIDs), file = fileName,
                     row.names = FALSE, col.names = FALSE)
 }
 # As background in the enrichment analysis, we will use all probes in the analysis.
-fileName = paste("LocusLinkIDs-all.txt", sep="")
+fileName = paste("Vassena.ensembl-all.txt", sep="")
 write.table(as.data.frame(allLLIDs), file = fileName,
             row.names = FALSE, col.names = FALSE)
 
@@ -920,18 +952,14 @@ write.table(as.data.frame(allLLIDs), file = fileName,
 #=====================================================================================
 
 #GOenrichmentAnalysis takes long time
-GOenr = GOenrichmentAnalysis(moduleColors, allLLIDs, organism = "mouse", nBestP = 10)
-#Error in GOenrichmentAnalysis(moduleColors, allLLIDs, organism = "mouse",  : 
-#None of the supplied gene identifiers map to the GO database.
-#Please make sure you have specified the correct organism (default is human).
+GOenr = GOenrichmentAnalysis(moduleColors, allLLIDs, organism = "human", nBestP = 10)
+# This function is deprecated and will be removed in the near future. 
 
 #=====================================================================================
 #
 #  Code chunk5.1.4-4
 #
 #=====================================================================================
-
-
 tab = GOenr$bestPTerms[[4]]$enrichment
 
 
@@ -940,8 +968,6 @@ tab = GOenr$bestPTerms[[4]]$enrichment
 #  Code chunk5.1.4-5
 #
 #=====================================================================================
-
-
 names(tab)
 
 
@@ -950,8 +976,6 @@ names(tab)
 #  Code chunk5.1.4-6
 #
 #=====================================================================================
-
-
 write.table(tab, file = "GOEnrichmentTable.csv", sep = ",", quote = TRUE, row.names = FALSE)
 
 
@@ -1010,7 +1034,7 @@ nSamples = nrow(datExpr)
 # ???????????????????????????
 # Calculate topological overlap anew: this could be done more efficiently by saving the TOM
 # calculated during module detection, but let us do it again here.
-dissTOM = 1-TOMsimilarityFromExpr(datExpr, power = 6)
+dissTOM = 1-TOMsimilarityFromExpr(datExpr, power = power)
 # Transform dissTOM with a power to make moderately strong connections more visible in the heatmap
 plotTOM = dissTOM^7
 # Set diagonal to NA for a nicer plot
@@ -1028,7 +1052,7 @@ TOMplot(plotTOM, geneTree, moduleColors, main = "Network heatmap plot, all genes
 #
 #=====================================================================================
 
-#????????????1000?????????????????????
+#????????????400?????????????????????
 nSelect = 400
 # For reproducibility, we set the random seed
 set.seed(10)
@@ -1037,7 +1061,7 @@ selectTOM = dissTOM[select, select]
 # There's no simple way of restricting a clustering tree to a subset of genes, so we must re-cluster.
 selectTree = hclust(as.dist(selectTOM), method = "average")
 selectColors = moduleColors[select]
-# Open a graphical window
+
 
 # Taking the dissimilarity to a power, say 10, makes the plot more informative by effectively changing 
 # the color palette setting the diagonal to NA also improves the clarity of the plot
@@ -1056,16 +1080,16 @@ TOMplot(plotDiss, selectTree, selectColors, main = "Network heatmap plot, select
 # Recalculate module eigengenes
 MEs = moduleEigengenes(datExpr, moduleColors)$eigengenes
 # Isolate weight from the clinical traits
-#weight = as.data.frame(datTraits$weight_g)
-#names(weight) = "weight"
-# Add the weight to existing module eigengenes
-#MET = orderMEs(cbind(MEs, weight))
+Cell.Stage = as.data.frame(datTraits$Cell.Stage)
+names(Cell.Stage) = "Cell.Stage"
+# Add the cell.stage to existing module eigengenes
+MET = orderMEs(cbind(MEs, Cell.Stage))
 MET = orderMEs(MEs)
 # Plot the relationships among the eigengenes and the trait
 
 par(cex = 0.9)
-plotEigengeneNetworks(MET, "Eigengene adjacency heatmap", marDendro = c(0,4,1,2), marHeatmap = c(3,4,1,2), cex.lab = 0.8, xLabelsAngle
-                      = 90)
+plotEigengeneNetworks(MET, "Eigengene adjacency heatmap", marDendro = c(0,4,1,2), marHeatmap = c(3,4,1,2), cex.lab = 0.8, 
+                      xLabelsAngle = 90)
 
 
 #=====================================================================================
@@ -1112,16 +1136,23 @@ lnames
 #=====================================================================================
 #chose soft power threshold
 cuts <- c(0, 20, 30, 40,60, Inf)
-chose.power <- c(20, 18,16,14,12)
-softPower <- chose.power[findInterval(nrow(datExpr), cuts)]
-softPower
+chose.power <- c(10, 9,8,7,6)
+power <- chose.power[findInterval(nrow(datExpr), cuts)]
+power
 
 # Recalculate topological overlap
 TOM = TOMsimilarityFromExpr(datExpr, power = softPower)
 # Read in the annotation file
 annot = read.csv(file = "GeneAnnotation.csv")
+# Match probes in the data set to the gene IDs in the annotation file 
+gene2annot = match(allgenes, annot$Gene.name)
+gene2annot <- gene2annot[!is.na(gene2annot)] #Remove all NA values from a vector
+# Get the corresponding GO IDs
+allLLIDs = annot$GO.term.accession[gene2annot] 
+allLLIDs <- allLLIDs[allLLIDs !=""] #Remove the empty element in the vector
+
 # Select module
-module = "brown"
+module = "turquoise"
 # Select module probes
 probes = names(datExpr)
 inModule = (moduleColors==module)
@@ -1133,8 +1164,8 @@ dimnames(modTOM) = list(modProbes, modProbes)
 vis = exportNetworkToVisANT(modTOM,
                             file = paste("VisANTInput-", module, ".txt", sep=""),
                             weighted = TRUE,
-                            threshold = 0,
-                            probeToGene = data.frame(annot$substanceBXH, annot$gene_symbol) )
+                            threshold = 0)
+#                            probeToGene = data.frame(annot$substanceBXH, annot$gene_symbol) )
 
 
 #=====================================================================================
