@@ -1,8 +1,15 @@
-#compare sets of transcriptional profiles in several ways:
-#    - by overall similarity eg using Spearman correlation
-#    - by similarity of signatures - usually done using GSEA (my preferred approach)
-#    - by first computing modules (using WCGNA) in each dataset,
-#        then comparing overlap of modules using hypergeometric test
+#Contant:
+#5.1 Network analysis of expression data from XX:
+#       5.1.1 Data input and cleaning 
+#       5.1.2 Network construction and module detection
+#               5.1.2a. Automatic, one-step network construction and module detection
+#               5.1.2b Step-by-step network construction and module detection
+#               5.1.2c Dealing with large datasets: block-wise network construction and module detection
+#       5.1.3 Relating modules to external clinical traits and identifying important genes
+#       5.1.4 Interfacing network analysis with other data such as functional annotation and gene ontology  (required)=============================
+#       5.1.5 Network visualization using WGCNA functions
+#       5.1.6 Export of networks to external software
+#5.2 Consensus analysis of naive state Stem Cell and Danwei's expression data
 
 ########################################################################
 #
@@ -10,13 +17,13 @@
 # 
 # ######################################################################
 
-list.of.cran.packages<- c("easypackages")
+list.of.cran.packages<- c("easypackages","WGCNA")
 new.packages <- list.of.cran.packages[!(list.of.cran.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
 library(easypackages)
 
 source("https://bioconductor.org/biocLite.R")
-list.of.bio.packages <- c("WGCNA")
+list.of.bio.packages <- c()
 new.packages <- list.of.bio.packages[!(list.of.bio.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) biocLite(new.packages)
 
@@ -31,13 +38,19 @@ if (Sys.info()[['sysname']]=="Windows"){
         setwd("C:/Users/User/Dropbox/Public/Olivier/R/Danwei_StemCell/dataset");getwd();list.files()}
 # The following setting is important, do not omit.
 options(stringsAsFactors = FALSE)
+# Allow multi-threading within WGCNA. This helps speed up certain calculations.
+# At present this call is necessary for the code to work.
+# Any error here may be ignored but you may want to update WGCNA if you see one.
+# Caution: skip this line if you run RStudio or other third-party R environments. 
+# See note above.
 
-
+if (!is.na(Sys.getenv("RSTUDIO", unset = NA))) disableWGCNAThreads()
+if (is.na(Sys.getenv("RSTUDIO", unset = NA)))  enableWGCNAThreads()
 
 ########################################################################################
 #
 # 5.1 Network analysis of expression data from XX:
-#  finding modules related to protocol number
+#  finding modules related to Cell.Stage
 #
 #  https://labs.genetics.ucla.edu/horvath/htdocs/CoexpressionNetwork/Rpackages/WGCNA/Tutorials/
 #
@@ -62,11 +75,16 @@ names(Danwei_Vassena)
 #  Code chunk5.1.1-2
 #
 #=====================================================================================
-#MicroArrayData 
+
 
 datExpr0 = as.data.frame(t(Danwei_Vassena[, -c(1:9)]))
 head(names(datExpr0))
 rownames(datExpr0)
+
+ProbeNames = rownames(Danwei_Vassena)
+Danwei.Data = data.frame(t(Danwei_Vassena[,1:9]))
+Vassena.Data = data.frame(t(Danwei_Vassena[,10:33]))
+Subsets = c(rep(2, times=9), rep(1, times=23))
 
 
 #=====================================================================================
@@ -104,14 +122,15 @@ if (!gsg$allOK)
 #  Code chunk5.1.1-5
 #
 #=====================================================================================
+#replace all datExpr0 with Vassena.Data
 
-
-sampleTree = hclust(dist(datExpr0), method = "average")
+sampleTree = hclust(dist(Vassena.Data), method = "average")
 # Plot the sample tree: Open a graphic output window of size 12 by 9 inches
 # The user should change the dimensions if the window is too large or too small.
 
 #pdf(file = "Plots/sampleClustering.pdf", width = 12, height = 9)
 par(cex = 0.6)
+par(mfrow = c(1,1))
 par(mar = c(0,4,2,0))
 plot(sampleTree, main = "Sample clustering to detect outliers", sub="", xlab="", cex.lab = 1.5, 
      cex.axis = 1.5, cex.main = 2)
@@ -125,18 +144,16 @@ plot(sampleTree, main = "Sample clustering to detect outliers", sub="", xlab="",
 
 
 # Plot a line to show the cut
-abline(h = 200, col = "red")
+abline(h = 160, col = "red")
 # Determine cluster under the line
-clust = cutreeStatic(sampleTree, cutHeight = 200, minSize = 10)
+clust = cutreeStatic(sampleTree, cutHeight = 160, minSize = 10)
 table(clust)
 # clust 1 contains the samples we want to keep.
 keepSamples = (clust==1)
-datExpr = datExpr0[keepSamples, ]
+datExpr = Vassena.Data[keepSamples, ]
 nGenes = ncol(datExpr)
 nSamples = nrow(datExpr)
-#extract the top 5000 most variant genes for WGCNA studies.
-#transpose matrix to correlate genes in the following
-datExpr = datExpr[,order(apply(datExpr,2,mad), decreasing = T)[1:5000]]
+
 
 
 #-------------------------------------------------------------------------
@@ -146,24 +163,28 @@ datExpr = datExpr[,order(apply(datExpr,2,mad), decreasing = T)[1:5000]]
 #-------------------------------------------------------------------------
 
 
-traitData = read.csv("ClinicalTraits.csv")
+traitData = read.csv("ClinicalTraits.csv",row.names = 1)
 dim(traitData)
 names(traitData)
 
 # remove columns that hold information we do not need.
-allTraits = traitData
-dim(allTraits)
+# convert character to numeric in r
+allTraits = apply(traitData,2,function(x) as.numeric(as.factor(x)))
+allTraits <- as.data.frame(allTraits)
 names(allTraits)
-
+rownames(allTraits) <- traitData$Cell
+head(allTraits,10)
 # Form a data frame analogous to expression data that will hold the clinical traits.
 
-VassenaSamples = rownames(datExpr)
-traitRows = match(VassenaSamples, allTraits$Cell)
+#replace all femaleSamples with Vassena.Samples
+
+
+Vassena.Samples = rownames(datExpr)
+traitRows = match(Vassena.Samples, traitData$Cell)
 datTraits = allTraits[traitRows, ]
-rownames(datTraits) = allTraits[traitRows, 1]
+#rownames(datTraits) = allTraits[traitRows, 1]
 
 collectGarbage()
-
 
 #-------------------------------------------------------------------------
 #
@@ -175,7 +196,10 @@ collectGarbage()
 # Re-cluster samples
 sampleTree2 = hclust(dist(datExpr), method = "average")
 # Convert traits to a color representation: white means low, red means high, grey means missing entry
-traitColors = numbers2colors(datTraits[,"Protocol_number"], signed = FALSE)
+traitColors = numbers2colors(datTraits$Cell.Stage, signed = FALSE)
+#Error in numbers2colors(datTraits[, "Cell.Stage"], signed = FALSE) :
+#'x' must be numeric. For a factor, please use as.numeric(x) in the call.
+
 # Plot the sample dendrogram and the colors underneath.
 plotDendroAndColors(sampleTree2, traitColors,
                     groupLabels = names(datTraits), 
@@ -196,7 +220,7 @@ save(datExpr, datTraits, file = "Vassena-01-dataInput.RData")
 #====5.1.2a. Automatic, one-step network construction and module detection
 
 #=====================================================================================
-#  Code chunk5.1.2-a1
+#  Code chunk5.1.2a-1
 #
 #=====================================================================================
 
@@ -205,25 +229,30 @@ save(datExpr, datTraits, file = "Vassena-01-dataInput.RData")
 # Any error here may be ignored but you may want to update WGCNA if you see one.
 # Caution: skip this line if you run RStudio or other third-party R environments. 
 # See note above.
+
+if (!is.na(Sys.getenv("RSTUDIO", unset = NA))) disableWGCNAThreads()
+if (is.na(Sys.getenv("RSTUDIO", unset = NA)))  enableWGCNAThreads()
 # enableWGCNAThreads()
 # Load the data saved in the first part
 lnames = load(file = "Vassena-01-dataInput.RData")
 #The variable lnames contains the names of loaded variables.
 lnames
-
+#extract the top 5000 most variant genes for WGCNA studies.
+#transpose matrix to correlate genes in the following
+datExpr = datExpr[,order(apply(datExpr,2,mad), decreasing = T)[1:5000]]
 #=====================================================================================
 #
-#  Code chunk5.1.2-a2
-#
+#  Code chunk5.1.2a-2
+# labs.genetics.ucla.edu/horvath/CoexpressionNetwork/Rpackages/WGCNA/faq.html
 #=====================================================================================
 
 
 # Choose a set of soft-thresholding powers ?????????????????????
-powers = c(c(1:10), seq(from = 12, to=20, by=2)) #takes long time
+powers = c(c(1:10), seq(from = 12, to=20, by=2)) 
 # Call the network topology analysis function
-sft = pickSoftThreshold(datExpr, powerVector = powers, verbose = 5)
+sft = pickSoftThreshold(datExpr, powerVector = powers, verbose = 5) #takes long time
 # Plot the results:
-
+par(mar=c(2,4,2,4))
 par(mfrow = c(1,2))
 cex1 = 0.9
 # Scale-free topology fit index as a function of the soft-thresholding power
@@ -233,35 +262,40 @@ plot(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
 text(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
      labels=powers,cex=cex1,col="red")
 # this line corresponds to using an R^2 cut-off of h
-abline(h=0.60,col="red")
+abline(h=0.90,col="red")
 # Mean connectivity as a function of the soft-thresholding power
 plot(sft$fitIndices[,1], sft$fitIndices[,5],
      xlab="Soft Threshold (power)",ylab="Mean Connectivity", type="n",
      main = paste("Mean connectivity"))
 text(sft$fitIndices[,1], sft$fitIndices[,5], labels=powers, cex=cex1,col="red")
-
+#chose power for signed networks 
+cuts <- c(0, 20, 30, 40,60, Inf)
+chose.power <- c(20, 18,16,14,12)
+power <- chose.power[findInterval(nrow(datExpr), cuts)]
+power
 
 #=====================================================================================
 #
-#  Code chunk5.1.2-a3
-#
+#  Code chunk5.1.2a-3
+# 
 #=====================================================================================
+
 # Constructing the gene network and identifying modules is now a simple function call:
 #?????????????????????
 net = blockwiseModules(datExpr, 
-                       power = 6,#power = 6 soft-thresholding power for network construction.
-                       TOMType = "unsigned", minModuleSize = 30,
+                       power = power,#power = 6 soft-thresholding power for network construction.
+                       TOMType = "signed", minModuleSize = 30,
                        reassignThreshold = 0, mergeCutHeight = 0.25,
                        numericLabels = TRUE, pamRespectsDendro = FALSE,
                        saveTOMs = TRUE,
-                       saveTOMFileBase = "femaleMouseTOM", 
+                       saveTOMFileBase = "Vassena.TOM", 
                        verbose = 3) #takes long time
 # To see how many modules were identified and what the module sizes are
 table(net$colors)
 
 #=====================================================================================
 #
-#  Code chunk5.1.2-a4
+#  Code chunk5.1.2a-4
 #
 #=====================================================================================
 
@@ -279,7 +313,7 @@ plotDendroAndColors(net$dendrograms[[1]], mergedColors[net$blockGenes[[1]]],
 
 #=====================================================================================
 #
-#  Code chunk5.1.2-a5
+#  Code chunk5.1.2a-5
 #
 #=====================================================================================
 
@@ -307,12 +341,12 @@ lnames = load(file = "Vassena-01-dataInput.RData")
 lnames
 #extract the top 5000 most variant genes for WGCNA studies.
 #transpose matrix to correlate genes in the following
-#datExpr = datExpr[,order(apply(datExpr,2,mad), decreasing = T)[1:5000]]
+datExpr = datExpr[,order(apply(datExpr,2,mad), decreasing = T)[1:5000]]
 
 #=====================================================================================
 #
 #  Code chunk5.1.2b-2
-#
+# labs.genetics.ucla.edu/horvath/CoexpressionNetwork/Rpackages/WGCNA/faq.html
 #=====================================================================================
 
 
@@ -331,34 +365,44 @@ plot(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
 text(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
      labels=powers,cex=cex1,col="red")
 # this line corresponds to using an R^2 cut-off of h
-abline(h=0.70,col="red")
+abline(h=0.8,col="red")
 # Mean connectivity as a function of the soft-thresholding power
 plot(sft$fitIndices[,1], sft$fitIndices[,5],
      xlab="Soft Threshold (power)",ylab="Mean Connectivity", type="n",
      main = paste("Mean connectivity"))
 text(sft$fitIndices[,1], sft$fitIndices[,5], labels=powers, cex=cex1,col="red")
 
+#chose soft power threshold
+cuts <- c(0, 20, 30, 40,60, Inf)
+chose.power <- c(20, 18,16,14,12)
+softPower <- chose.power[findInterval(nrow(datExpr), cuts)]
+softPower
 
 #=====================================================================================
 #
 #  Code chunk5.1.2b-3
 #
 #=====================================================================================
+#generated similarity matrices S based on Pearson correlations between all gene pairs"
+S <- 0.5 + 0.5*cor(datExpr, method="spearman") #Sij = 0.5 + 0.5 × cor(i,j)
+
 
 #????????????:(1) Co-expression similarity and adjacency
-softPower = 6
-adjacency = adjacency(datExpr, power = softPower)
+#built adjacency matrices for each dataset using a soft power threshold of 60
+adjacency = adjacency.fromSimilarity(S, power = softPower,type = "signed") #type = "signed"!
 
 
 #=====================================================================================
 #
 #  Code chunk5.1.2b-4
-#
+# https://www.researchgate.net/post/What_do_adjacency_matrix_and_Topology_Overlap_Matrix_from_WGCNA_package_tell_about_the_data
 #=====================================================================================
-
+# To minimize effects of noise and spurious associations
 # ????????????????????????????????????,Turn adjacency into topological overlap
-# Turn adjacency into topological overlap
+# calculate the corresponding dissimilarity
 TOM = TOMsimilarity(adjacency)
+rownames(TOM) <- rownames(adjacency)
+colnames(TOM) <- colnames(adjacency)
 dissTOM = 1-TOM
 
 
@@ -372,7 +416,7 @@ dissTOM = 1-TOM
 # Call the hierarchical clustering function
 geneTree = hclust(as.dist(dissTOM), method = "average")
 # Plot the resulting clustering tree (dendrogram)
-
+par(mfrow = c(1,1))
 plot(geneTree, xlab="", sub="", main = "Gene clustering on TOM-based dissimilarity",
      labels = FALSE, hang = 0.04)
 
@@ -422,6 +466,9 @@ plotDendroAndColors(geneTree, dynamicColors, "Dynamic Tree Cut",
 #?????????????????????????????????????????????????????????,???????????????????????????modules????????????
 # Calculate eigengenes
 MEList = moduleEigengenes(datExpr, colors = dynamicColors)
+#moduleEigengenes represents the module expressions of the q-th module by the module eigengene E
+#The eigengene E can be thought of as a weighted average expression profile.
+
 MEs = MEList$eigengenes
 # Calculate dissimilarity of module eigengenes
 MEDiss = 1-cor(MEs)
@@ -466,9 +513,9 @@ plotDendroAndColors(geneTree, cbind(dynamicColors, mergedColors),
                     addGuide = TRUE, guideHang = 0.05)
 #dev.off()
 #??????????????????????????????
-plotDendroAndColors(geneTree,mergedColors,"Merged dynamic",
-                    dendroLabels = FALSE, hang = 0.03,
-                    addGuide = TRUE, guideHang = 0.05)
+#plotDendroAndColors(geneTree,mergedColors,"Merged dynamic",
+#                    dendroLabels = FALSE, hang = 0.03,
+#                    addGuide = TRUE, guideHang = 0.05)
 #=====================================================================================
 #
 #  Code chunk5.1.2b-11
@@ -541,11 +588,11 @@ text(sft$fitIndices[,1], sft$fitIndices[,5], labels=powers, cex=cex1,col="red")
 
 
 bwnet = blockwiseModules(datExpr, maxBlockSize = 2000,
-                         power = 6, TOMType = "unsigned", minModuleSize = 30,
+                         power = 6, TOMType = "signed", minModuleSize = 30,
                          reassignThreshold = 0, mergeCutHeight = 0.25,
                          numericLabels = TRUE,
                          saveTOMs = TRUE,
-                         saveTOMFileBase = "femaleMouseTOM-blockwise",
+                         saveTOMFileBase = "Vassena.TOM-blockwise",
                          verbose = 3)
 
 
@@ -557,13 +604,13 @@ bwnet = blockwiseModules(datExpr, maxBlockSize = 2000,
 
 
 # Load the results of single-block analysis
-load(file = "Vassena-02-networkConstruction-auto.RData")
+load(file = "Vassena-02-networkConstruction-auto.RData") #number doesn't match
 # Relabel blockwise modules
 bwLabels = matchLabels(bwnet$colors, moduleLabels)
 # Convert labels to colors for plotting
 bwModuleColors = labels2colors(bwLabels)
-
-
+#To see how many modules were identified and what the module sizes are
+table(bwLabels)
 #=====================================================================================
 #
 #  Code chunk5.1.2c-5
@@ -637,7 +684,7 @@ lnames = load(file = "Vassena-01-dataInput.RData")
 #The variable lnames contains the names of loaded variables.
 lnames
 # Load network data saved in the second part.
-lnames = load(file = "Vassena-02-networkConstruction-auto.RData")
+lnames = load(file = "Vassena-02-networkConstruction-stepByStep.RData")
 lnames
 
 
@@ -654,7 +701,10 @@ nSamples = nrow(datExpr)
 # Recalculate MEs with color labels
 MEs0 = moduleEigengenes(datExpr, moduleColors)$eigengenes
 MEs = orderMEs(MEs0)
-moduleTraitCor = cor(MEs, datTraits, use = "p")
+moduleTraitCor = cor(MEs, datTraits, use = "p",method = "spearman")
+#Remove columns from dataframe where some of values are NA
+moduleTraitCor <- moduleTraitCor[ , apply(moduleTraitCor, 2, function(x) !any(is.na(x)))]
+
 moduleTraitPvalue = corPvalueStudent(moduleTraitCor, nSamples)
 
 
@@ -670,6 +720,7 @@ moduleTraitPvalue = corPvalueStudent(moduleTraitCor, nSamples)
 textMatrix =  paste(signif(moduleTraitCor, 2), "\n(",
                     signif(moduleTraitPvalue, 1), ")", sep = "")
 dim(textMatrix) = dim(moduleTraitCor)
+par(mfrow =c(1,1))
 par(mar = c(6, 8.5, 3, 3))
 # Display the correlation values within a heatmap plot
 labeledHeatmap(Matrix = moduleTraitCor,
@@ -677,13 +728,15 @@ labeledHeatmap(Matrix = moduleTraitCor,
                yLabels = names(MEs),
                ySymbols = names(MEs),
                colorLabels = FALSE,
-               colors = greenWhiteRed(50),
+               colors = blueWhiteRed(50),
                textMatrix = textMatrix,
                setStdMargins = FALSE,
                cex.text = 0.5,
                zlim = c(-1,1),
                main = paste("Module-trait relationships"))
-
+#WGCNA::greenWhiteRed: this palette is not suitable for people
+#with green-red color blindness (the most common kind of color blindness).
+#Consider using the function blueWhiteRed instead.
 
 #=====================================================================================
 #
@@ -692,9 +745,9 @@ labeledHeatmap(Matrix = moduleTraitCor,
 #=====================================================================================
 
 
-# Define variable weight containing the weight column of datTrait
-Protocol = as.data.frame(datTraits$Protocol_number)
-names(Protocol) = "Protocol"
+# Define variable Cell.Stage containing the Cell.Stage column of datTrait
+Cell.Stage = as.data.frame(datTraits$Cell.Stage)
+names(Cell.Stage) = "Cell.Stage"
 #names (colors) of the modules
 modNames = substring(names(MEs), 3)
 
@@ -704,11 +757,11 @@ MMPvalue = as.data.frame(corPvalueStudent(as.matrix(geneModuleMembership), nSamp
 names(geneModuleMembership) = paste("MM", modNames, sep="")
 names(MMPvalue) = paste("p.MM", modNames, sep="")
 
-geneTraitSignificance = as.data.frame(cor(datExpr, Protocol, use = "p"))
+geneTraitSignificance = as.data.frame(cor(datExpr, Cell.Stage, use = "p"))
 GSPvalue = as.data.frame(corPvalueStudent(as.matrix(geneTraitSignificance), nSamples))
 
-names(geneTraitSignificance) = paste("GS.", names(Protocol), sep="")
-names(GSPvalue) = paste("p.GS.", names(Protocol), sep="")
+names(geneTraitSignificance) = paste("GS.", names(Cell.Stage), sep="")
+names(GSPvalue) = paste("p.GS.", names(Cell.Stage), sep="")
 
 #=====================================================================================
 #
@@ -717,7 +770,7 @@ names(GSPvalue) = paste("p.GS.", names(Protocol), sep="")
 #=====================================================================================
 
 
-module = "yellow" #yellow
+module = "turquoise" # based on Module-trait relationships
 column = match(module, modNames)
 moduleGenes = moduleColors==module
 
@@ -728,7 +781,7 @@ verboseScatterplot(abs(geneModuleMembership[moduleGenes, column]),
                    xlab = paste("Module Membership in", module, "module"),
                    ylab = "Gene significance for body weight",
                    main = paste("Module membership vs. gene significance\n"),
-                   cex.main = 1.2, cex.lab = 1.2, cex.axis = 1.2, col = "orange") #yellow
+                   cex.main = 1.2, cex.lab = 1.2, cex.axis = 1.2, col = "turquoise") #yellow
 
 
 #=====================================================================================
@@ -748,7 +801,7 @@ names(datExpr)
 #=====================================================================================
 
 
-names(datExpr)[moduleColors=="yellow"]
+names(datExpr)[moduleColors=="turquoise"]
 
 
 #---------------------------------------------------------------#
@@ -782,8 +835,8 @@ geneInfo0 = data.frame(
         moduleColor = moduleColors,
         geneTraitSignificance,
         GSPvalue)
-# Order modules by their significance for Protocol
-modOrder = order(-abs(cor(MEs, Protocol, use = "p")))
+# Order modules by their significance for Cell.Stage
+modOrder = order(-abs(cor(MEs, Cell.Stage, use = "p")))
 # Add module membership information in the chosen order
 for (mod in 1:ncol(geneModuleMembership))
 {
@@ -795,7 +848,7 @@ for (mod in 1:ncol(geneModuleMembership))
 }
 head(geneInfo0[1:3,])
 # Order the genes in the geneInfo variable first by module color, then by geneTraitSignificance
-geneOrder = order(geneInfo0$moduleColor, -abs(geneInfo0$GS.Protocol))
+geneOrder = order(geneInfo0$moduleColor, -abs(geneInfo0$GS.Cell.Stage))
 geneInfo = geneInfo0[geneOrder, ]
 
 
@@ -823,7 +876,7 @@ lnames = load(file = "Vassena-01-dataInput.RData")
 #The variable lnames contains the names of loaded variables.
 lnames
 # Load network data saved in the second part.
-lnames = load(file = "Vassena-02-networkConstruction-auto.RData")
+lnames = load(file = "Vassena-02-networkConstruction-stepByStep.RData")
 lnames
 
 
@@ -1057,10 +1110,14 @@ lnames
 #  Code chunk5.1.6-2
 #
 #=====================================================================================
-
+#chose soft power threshold
+cuts <- c(0, 20, 30, 40,60, Inf)
+chose.power <- c(20, 18,16,14,12)
+softPower <- chose.power[findInterval(nrow(datExpr), cuts)]
+softPower
 
 # Recalculate topological overlap
-TOM = TOMsimilarityFromExpr(datExpr, power = 6)
+TOM = TOMsimilarityFromExpr(datExpr, power = softPower)
 # Read in the annotation file
 annot = read.csv(file = "GeneAnnotation.csv")
 # Select module
@@ -2683,7 +2740,7 @@ ADJ1=abs(cor(datExpr,use="p"))^6
 # When you have relatively few genes (<5000) use the following code
 k=as.vector(apply(ADJ1,2,sum, na.rm=T))
 # When you have a lot of genes use the following code
-k=softConnectivity(datE=datExpr,power=6) 
+k=softConnectivity(datE=Vassena.Data,power=6) 
 # Plot a histogram of k and a scale free topology plot
 
 par(mfrow=c(1,2))
