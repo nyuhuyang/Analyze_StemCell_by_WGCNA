@@ -20,8 +20,8 @@ disp_table <- dispersionTable(HSMM)
 #It works."							
 							
 #---------2017/6/9------------							
-							
-#ggplot tricks:	
+						
+#ggplot legend tricks:	
 theme()
 text = element_text(size=40)     #larger text including legend title							
 legend.text = element_text(size=30) #larger legend text							
@@ -153,7 +153,7 @@ ggplot(d)+facet_warp(~gene_short_name)
 #generate Rshiny
 "print(p), but forgot p<-ggplot"
 
-#"Before publish to shiny, restart the R to double check the package dependency！！！"
+#"Before publish to shiny, restart the R to double check the package dependency
 
 #//
 #//  Debug.R
@@ -560,7 +560,149 @@ boxplot(eData, las = 3) # rotate xlab
 TOMsimilarityFromExpr #take long time, have to minimize gene number
 
 
+#2017-08-18
+
+# Display the dimensions of dataframe in the list
+lapply(multiExpr, lapply, dim)
+"WGCNA" #Xue nature 2013
+"A.To construct the Weighted gene co-expression networks separately"
+"1.generated similarity matrices S based on Pearson correlations between all gene pairs"
+#Their component Sij was measured by the function, Sij = 0.5 + 0.5 � cor(i,j)., 
+#where cor(i,j) denotes Pearson correlation for expression profiles of gene i and j.
+adjacency.fromSimilarity
+"2.raised the correlation matrix to a user-defined power"
+#in order to suppress noisy small correlations and then calculated the adjacency matrices.
+"3.calculated topological overlaps"
+#which reflect not only direct adjacency in gene pairs but also their interconnections
+"4.build hierarchical trees with average linkage method."
+#We divided the trees with the Dynamic Tree Cut algorithm to determine gene modules (Langfelder et al., 2008).
+"5.merged modules when their eigengenes show strong correlation"
+
+"B.To construct consensus modules"
+"1.built adjacency matrices for each dataset using a soft power threshold of 60"
+"2.used the adjacency matrices to calculate topological overlap matrices (TOM)"
+"3.determined the consensus TOM based on the 25% quantile of multiple TOMs."
+"4.The consensus TO was used to build the hierarchical tree, and gene modules were calculated using the Dynamic Tree Cut algorithm."
+"5.gene modules were merged when module eigengenes showed a correlation of 75% or better"
+
+"C.Module preservation analysis"
+"1-1. examined overlaps between modules derived from different datasets"
+"1-2. estimated their statistical significance from the hypergeometric distribution"
+"2-1. utilized a composite preservation statistics proposed by WGCNA"
+"2-2. calculate Zsummary scores"
+
+#2017-08-19
+'Error in numbers2colors(datTraits[, "Cell.Stage"], signed = FALSE) : 
+  x must be numeric. For a factor, please use as.numeric(x) in the call.'
+#convert character to numeric in r
+options(stringsAsFactors = TRUE)
+as.numeric(as.factor(datTraits[,"Cell.Stage"]))
+test <- data.frame(A =as.numeric(as.factor(datTraits[,"Cell.Stage"])),
+                   B =datTraits[,"Cell.Stage"])
+test
+
+"get an error when running parallel calculations"
+if (!is.na(Sys.getenv("RSTUDIO", unset = NA))) {
+        # RStudio specific code
+}
+
+#switch function
+"EXPR is not a character string it is coerced to integer"
+
+"R switch statement on comparisons"
+#findInterval
+cuts <- c(0, 20, 30, 40,60, Inf)
+chose.power <- c(20, 18,16,14,12)
+power <- chose.power[findInterval(nrow(datExpr), cuts)]
+power
 
 
+#5.3.5 Construction of a weighted gene co-expression network and network modules
+"if gene <5000, scaleFreePlot shows it doesn't fit the scale free topology"
+#5.1.2c Dealing with large datasets: block-wise network construction and module detection
+
+cor(x, y = NULL, use = "everything",
+    method = c("pearson", "kendall", "spearman"))
+#http://www.statisticssolutions.com/correlation-pearson-kendall-spearman/
+#Pearson r correlation :        normally distributed (bell-shaped curve).  
+#                               linearity (straight line)
+#                               homoscedasticity (normally distributed about the regression line)
+#                       Data that is interval or ratio level
+
+#Kendall rank correlation:      strength of dependence between two variables
+
+#Spearman rank correlation:     degree of association between two variables
+#                               does not make any assumptions about the distribution
+
+#Spearman rho correlation:      data must be at least ordinal and scores on one variable
+#                               must be montonically related to the other variable.
+#                       Although this scale allows us to determine greater than, less than, or equal to,
+#                       it still does not define the magnitude of the relationship between units. 
+
+"Pareto distribution"  #wiki
+"power-law probability distribution" #wiki
+
+"What is the difference between cor and cor.test in R"
+#use arguments
+
+#convert character to numeric in r
+"Error in sort.list(y) : 'x' must be atomic for 'sort.list'
+Have you called 'sort' on a list?"
+options(stringsAsFactors = TRUE)
+allTraits = apply(traitData,2,function(x) as.numeric(as.factor(x)))
+allTraits <- as.data.frame(allTraits)
+rownames(allTraits) <- traitData$Cell
+options(stringsAsFactors = FALSE)
+
+#Remove columns from dataframe where some of values are NA
+moduleTraitCor[ , colSums(is.na(moduleTraitCor)) == 0]
+moduleTraitCor[ , apply(moduleTraitCor, 2, function(x) !any(is.na(x)))]
+
+#2017-08-20
+"how to use biomAT"
+
+library(biomaRt)
+# downlaod annotationfrom biomAT
+mart <- useMart("ensembl")
+ensembl <- useDataset("hsapiens_gene_ensembl", mart)
+annot <-getBM(attributes = c("ensembl_gene_id", #Gene stable ID
+                     "external_gene_name", #Gene name
+                     "go_id",   #GO term accession
+                     "affy_hugene_1_0_st_v1"), #AFFY HuGene 1 0 st v1
+#      filters = "external_gene_name", values = allgenes,  #save time with filter
+      mart = ensembl)
+
+#Remove all NA values from a vector
+d <- d[!is.na(d)]
+#Remove the empty element in the vector
+d <- d[d !=""] 
 
 
+#2017-08-21
+"Error: ggplot2 doesn't know how to deal with data of class numeric"
+#Don't subset data inside qplot
+
+#ggplot
+#http://ggplot2.tidyverse.org/reference/index.html#section-plot-basics
+
++theme_bw() #ggplot white background, but can't change font size
+
+ggplot(data=sale.data,aes(amount))+
+        geom_histogram(aes(y=..density..),      # Histogram with density instead of count on y-axis
+                       binwidth=70,
+                       colour="black", fill="white") +
+        ggtitle("Amount per transaction")+
+        geom_density(alpha=.2, fill="#CC6666")+
+        facet_grid(region ~ .)+
+        theme(axis.text = element_text(size = 20),
+              axis.text.y=element_blank(), #remove y axis
+              axis.ticks.y=element_blank())+#remove y axis
+        #        scale_x_discrete(name ="Amount")+ #change x axis lab
+        scale_y_continuous(name="Percentage(%)") #change y axis lab
+
+#polynomial vs numeric
+
+"Error in combine_vars(data, params$plot_env, rows, drop = params$drop)"
+
+"Cheat Sheets for Plotting Symbols and Color Palettes"
+#http://vis.supstat.com/2013/04/plotting-symbols-and-color-palettes/
