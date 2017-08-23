@@ -23,7 +23,7 @@ if(length(new.packages)) install.packages(new.packages)
 library(easypackages)
 
 source("https://bioconductor.org/biocLite.R")
-list.of.bio.packages <- c("WGCNA")
+list.of.bio.packages <- c("WGCNA","biomaRt")
 new.packages <- list.of.bio.packages[!(list.of.bio.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) biocLite(new.packages)
 
@@ -69,10 +69,10 @@ extract <- TRUE
 #=====================================================================================
 
 # Read in rnaseq_MicroArrayData
-Danwei_Vassena = read.csv("rnaseq_MicroArrayData.csv",row.names = 1)
+Vassena = read.csv("./Huang_Cell_2014/Vassena_dataset.csv",row.names = 1)
 # Take a quick look at what is in the data set:
-dim(Danwei_Vassena)
-names(Danwei_Vassena)
+dim(Vassena)
+names(Vassena)
 
 
 #=====================================================================================
@@ -82,13 +82,11 @@ names(Danwei_Vassena)
 #=====================================================================================
 
 
-datExpr0 = as.data.frame(t(Danwei_Vassena[, -c(1:9)]))
+datExpr0 = as.data.frame(t(Vassena))
 head(names(datExpr0))
 rownames(datExpr0)
 
-ProbeNames = rownames(Danwei_Vassena)
-Danwei.Data = data.frame(t(Danwei_Vassena[,1:9]))
-Vassena.Data = data.frame(t(Danwei_Vassena[,10:33]))
+ProbeNames = names(datExpr0)
 Subsets = c(rep(2, times=9), rep(1, times=23))
 
 
@@ -129,7 +127,7 @@ if (!gsg$allOK)
 #=====================================================================================
 #replace all datExpr0 with Vassena.Data
 
-sampleTree = hclust(dist(Vassena.Data), method = "average")
+sampleTree = hclust(dist(datExpr0), method = "average")
 # Plot the sample tree: Open a graphic output window of size 12 by 9 inches
 # The user should change the dimensions if the window is too large or too small.
 
@@ -149,13 +147,13 @@ plot(sampleTree, main = "Sample clustering to detect outliers", sub="", xlab="",
 
 
 # Plot a line to show the cut
-abline(h = 160, col = "red")
+abline(h = 180, col = "red")
 # Determine cluster under the line
-clust = cutreeStatic(sampleTree, cutHeight = 160, minSize = 10)
+clust = cutreeStatic(sampleTree, cutHeight = 180, minSize = 10)
 table(clust)
 # clust 1 contains the samples we want to keep.
 keepSamples = (clust==1)
-datExpr = Vassena.Data[keepSamples, ]
+datExpr = datExpr0[keepSamples, ]
 nGenes = ncol(datExpr)
 nSamples = nrow(datExpr)
 #extract the top 5000 most variant genes for WGCNA studies.
@@ -170,7 +168,7 @@ if(extract==TRUE){datExpr = datExpr[,order(apply(datExpr,2,mad), decreasing = T)
 #-------------------------------------------------------------------------
 
 
-traitData = read.csv("ClinicalTraits.csv",row.names = 1)
+traitData = read.csv("./Huang_Cell_2014/ClinicalTraits.csv",row.names = 1)
 dim(traitData)
 names(traitData)
 
@@ -183,7 +181,7 @@ rownames(allTraits) <- traitData$Cell
 head(allTraits,10)
 # Form a data frame analogous to expression data that will hold the clinical traits.
 
-#replace all femaleSamples with Vassena.Samples
+#replace all VassenaSamples with Vassena.Samples
 
 
 Vassena.Samples = rownames(datExpr)
@@ -908,17 +906,17 @@ lnames
 allgenes = names(datExpr)
 #library(biomaRt)
 # downlaod annotationfrom biomAT
-#mart <- useMart("ensembl")
-#ensembl <- useDataset("hsapiens_gene_ensembl", mart)
-#annot <-getBM(attributes = c("ensembl_gene_id", #Gene stable ID
-#                     "external_gene_name", #Gene name
-#                     "go_id",   #GO term accession
-#                     "affy_hugene_1_0_st_v1"), #AFFY HuGene 1 0 st v1
-#      filters = "external_gene_name", values = allgenes,  #save time with filter
-#      mart = ensembl)
+mart <- useMart("ensembl")
+ensembl <- useDataset("hsapiens_gene_ensembl", mart)
+annot <-getBM(attributes = c("ensembl_gene_id", #Gene stable ID
+                     "external_gene_name", #Gene name
+                     "go_id",   #GO term accession
+                     "affy_hugene_1_0_st_v1"), #AFFY HuGene 1 0 st v1
+      filters = "external_gene_name", values = allgenes,  #save time with filter
+      mart = ensembl)
 
 # Read in the annotation
-annot = read.csv(file = "Human_GeneAnnotation.csv")
+#annot = read.csv(file = "Human_GeneAnnotation.csv")
 # Match probes in the data set to the gene IDs in the annotation file 
 gene2annot = match(allgenes, annot$Gene.name)
 gene2annot <- gene2annot[!is.na(gene2annot)] #Remove all NA values from a vector
@@ -1143,7 +1141,14 @@ power
 # Recalculate topological overlap
 TOM = TOMsimilarityFromExpr(datExpr, power = softPower)
 # Read in the annotation file
-annot = read.csv(file = "GeneAnnotation.csv")
+mart <- useMart("ensembl")
+ensembl <- useDataset("hsapiens_gene_ensembl", mart)
+annot <-getBM(attributes = c("ensembl_gene_id", #Gene stable ID
+                             "external_gene_name", #Gene name
+                             "go_id",   #GO term accession
+                             "affy_hugene_1_0_st_v1"), #AFFY HuGene 1 0 st v1
+              filters = "external_gene_name", values = allgenes,  #save time with filter
+              mart = ensembl)
 # Match probes in the data set to the gene IDs in the annotation file 
 gene2annot = match(allgenes, annot$Gene.name)
 gene2annot <- gene2annot[!is.na(gene2annot)] #Remove all NA values from a vector
@@ -1232,16 +1237,38 @@ cyt = exportNetworkToCytoscape(modTOM,
 
 # The following setting is important, do not omit.
 options(stringsAsFactors = FALSE)
-#Read in the female liver data set
-Danwei_Vassena = read.csv("LiverFemale3600.csv")
-# Read in the male liver data set
-maleData = read.csv("LiverMale3600.csv")
+#Read in the Vassena cells data set
+Vassena = read.csv("./Huang_Cell_2014/Vassena_dataset.csv")
+# Read in the Danwei cells data set
+Danwei = read.csv("./Huang_Cell_2014/Danwei_rnaseq.csv",header = 1)
 # Take a quick look at what is in the data sets (caution, longish output):
-dim(Danwei_Vassena)
-names(Danwei_Vassena)
-dim(maleData)
-names(maleData)
+dim(Vassena)
+names(Vassena)
+dim(Danwei)
+names(Danwei)
 
+#merge
+Vassena_Danwei <- merge(Vassena, Danwei,by ="X") #X is first column
+dim(Vassena_Danwei)
+head(Vassena_Danwei[,1:3])
+
+
+#detach
+Vassena<-Vassena_Danwei[,names(Vassena)]
+rownames(Vassena) <- Vassena$X
+Vassena <- Vassena[,-1]
+#extract the top 5000 most variant genes for WGCNA studies.
+#transpose matrix to correlate genes in the following
+if(extract==TRUE){Vassena = Vassena[order(apply(Vassena,1,mad), decreasing = T)[1:5000],]}
+#different from t(Vassena)
+
+Danwei<-Danwei[,names(Danwei)]
+rownames(Danwei) <- Danwei$X
+Danwei <- Danwei[,-1]
+
+#extract the top 5000 most variant genes for WGCNA studies.
+#transpose matrix to correlate genes in the following
+if(extract==TRUE){Danwei = Danwei[order(apply(Danwei,1,mad), decreasing = T)[1:5000],]}
 
 #=====================================================================================
 #
@@ -1253,20 +1280,20 @@ names(maleData)
 # We work with two sets:
 nSets = 2
 # For easier labeling of plots, create a vector holding descriptive names of the two sets.
-setLabels = c("Female liver", "Male liver")
-shortLabels = c("Female", "Male")
+setLabels = c("Vassena cells", "Danwei cells")
+shortLabels = c("Vassena", "Danwei")
 # Form multi-set expression data: columns starting from 9 contain actual expression data.
 multiExpr = vector(mode = "list", length = nSets)
 
-multiExpr[[1]] = list(data = as.data.frame(t(Danwei_Vassena[-c(1:8)])))
-names(multiExpr[[1]]$data) = Danwei_Vassena$substanceBXH
-rownames(multiExpr[[1]]$data) = names(Danwei_Vassena)[-c(1:8)]
-multiExpr[[2]] = list(data = as.data.frame(t(maleData[-c(1:8)])))
-names(multiExpr[[2]]$data) = maleData$substanceBXH
-rownames(multiExpr[[2]]$data) = names(maleData)[-c(1:8)]
+multiExpr[[1]] = list(data = as.data.frame(t(Vassena)))
+all(names(multiExpr[[1]]$data) == rownames(Vassena))
+all(rownames(multiExpr[[1]]$data) == names(Vassena))
+multiExpr[[2]] = list(data = as.data.frame(t(Danwei)))
+all(names(multiExpr[[2]]$data) == rownames(Danwei))
+all(rownames(multiExpr[[2]]$data) == names(Danwei))
 # Check that the data has the correct format for many functions operating on multiple sets:
 exprSize = checkSets(multiExpr)
-
+exprSize
 
 #=====================================================================================
 #
@@ -1280,11 +1307,11 @@ gsg = goodSamplesGenesMS(multiExpr, verbose = 3)
 gsg$allOK
 
 
-#=====================================================================================
+#------------------------------------------------------------------------------
 #
 #  Code chunk5.2.1-4
 #
-#=====================================================================================
+#------------------------------------------------------------------------------
 
 
 if (!gsg$allOK)
@@ -1343,10 +1370,10 @@ for (set in 1:nSets)
 #=====================================================================================
 
 
-# Choose the "base" cut height for the female data set
-baseHeight = 16
-# Adjust the cut height for the male data set for the number of samples
-cutHeights = c(16, 16*exprSize$nSamples[2]/exprSize$nSamples[1])
+# Choose the "base" cut height for the Vassena data set
+baseHeight = 140
+# Adjust the cut height for the Danwei data set for the number of samples
+cutHeights = c(140, 140*exprSize$nSamples[2]/exprSize$nSamples[1])
 # Re-plot the dendrograms including the cut lines
 #skip pdf(file = "Plots/SampleClustering.pdf", width = 12, height = 12)
 par(mfrow=c(2,1))
@@ -1371,8 +1398,8 @@ for (set in 1:nSets)
 {
         # Find clusters cut by the line
         labels = cutreeStatic(sampleTrees[[set]], cutHeight = cutHeights[set])
-        # Keep the largest one (labeled by the number 1)
-        keep = (labels==1)
+        # Keep the small one (labeled by the number 0)
+        keep = (labels==0)
         multiExpr[[set]]$data = multiExpr[[set]]$data[keep, ]
 }
 collectGarbage()
@@ -1388,26 +1415,25 @@ exprSize
 #=====================================================================================
 
 
-traitData = read.csv("ClinicalTraits.csv")
+traitData = read.csv("./Huang_Cell_2014/ClinicalTraits.csv",row.names = 1)
 dim(traitData)
 names(traitData)
-# remove columns that hold information we do not need.
-allTraits = traitData[, -c(31, 16)]
-allTraits = allTraits[, c(2, 11:36) ]
-# See how big the traits are and what are the trait and sample names
-dim(allTraits)
+# convert character to numeric in r
+allTraits = apply(traitData,2,function(x) as.numeric(as.factor(x)))
+allTraits <- as.data.frame(allTraits)
 names(allTraits)
-allTraits$Mice
+rownames(allTraits) <- traitData$Cell
+head(allTraits,10)
+
 # Form a multi-set structure that will hold the clinical traits.
 Traits = vector(mode="list", length = nSets)
 for (set in 1:nSets)
 {
         setSamples = rownames(multiExpr[[set]]$data)
-        traitRows = match(setSamples, allTraits$Mice)
-        Traits[[set]] = list(data = allTraits[traitRows, -1])
-        rownames(Traits[[set]]$data) = allTraits[traitRows, 1]
+        traitRows = match(setSamples, rownames(allTraits))
+        Traits[[set]] = list(data = allTraits[traitRows, ])
+        print(all(rownames(Traits[[set]]$data) == rownames(allTraits)[traitRows]))
 }
-collectGarbage()
 # Define data set dimensions
 nGenes = exprSize$nGenes
 nSamples = exprSize$nSamples
@@ -1478,7 +1504,7 @@ for (set in 1:nSets)
         }
 }
 # Plot the quantities in the chosen columns vs. the soft thresholding power
-pdf(file = "Plots/scaleFreeAnalysis.pdf", wi = 8, he = 6)
+#pdf(file = "Plots/scaleFreeAnalysis.pdf", wi = 8, he = 6)
 par(mfcol = c(2,2))
 par(mar = c(4.2, 4.2 , 2.2, 0.5))
 cex1 = 0.7
@@ -1544,7 +1570,7 @@ consTree = net$dendrograms[[1]]
 
 
 
-pdf(file = "Plots/ConsensusDendrogram-auto.pdf", wi = 8, he = 6)
+#pdf(file = "Plots/ConsensusDendrogram-auto.pdf", wi = 8, he = 6)
 plotDendroAndColors(consTree, moduleColors,
                     "Module colors",
                     dendroLabels = FALSE, hang = 0.03,
@@ -1703,7 +1729,7 @@ for (set in 1:nSets)
         # Calculate the 95th percentile
         scaleQuant[set] = quantile(TOMScalingSamples[[set]],
                                    probs = scaleP, type = 8)
-        # Scale the male TOM
+        # Scale the Danwei TOM
         if (set>1)
         {
                 scalePowers[set] = log(scaleQuant[1])/log(scaleQuant[set])
@@ -1735,7 +1761,7 @@ qqScaled = qqplot(scaledTOMSamples[[1]], scaledTOMSamples[[2]], plot.it = FALSE)
 points(qqScaled$x, qqScaled$y, col = "red", cex = 0.6, pch = 20)
 abline(a=0, b=1, col = "blue")
 legend("topleft", legend = c("Unscaled TOM", "Scaled TOM"), pch = 20, col = c("black", "red"))
-dev.off()
+
 
 
 #=====================================================================================
@@ -1798,7 +1824,7 @@ consMETree = hclust(as.dist(consMEDiss), method = "average")
 par(mfrow = c(1,1))
 plot(consMETree, main = "Consensus clustering of consensus module eigengenes",
      xlab = "", sub = "")
-abline(h=0.25, col = "red")
+abline(h=1, col = "red")
 
 
 #=====================================================================================
@@ -2004,7 +2030,7 @@ plotDendroAndColors(consTree,
                     main = "Single block consensus gene dendrogram and module colors")
 dev.off()
 
-#===5.2.3 Relating the consensus modules to female set-specific modules (this section requires the results of Section 2.a of the female turorial)
+#===5.2.3 Relating the consensus modules to Vassena set-specific modules (this section requires the results of Section 2.a of the Vassena turorial)
 
 #=====================================================================================
 #
@@ -2030,13 +2056,13 @@ lnames
 #=====================================================================================
 
 
-lnames = load("../Mouse-Female/Vassena-02-networkConstruction-auto.RData")
+lnames = load("Vassena-02-networkConstruction-auto.RData")
 lnames
 # Rename variables to avoid conflicts
-femaleLabels = moduleLabels
-femaleColors = moduleColors
-femaleTree = geneTree
-femaleMEs = orderMEs(MEs, greyName = "ME0")
+Vassena.Labels = moduleLabels
+Vassena.Colors = moduleColors
+Vassena.Tree = geneTree
+Vassena.MEs = orderMEs(MEs, greyName = "ME0")
 
 
 #=====================================================================================
@@ -2058,25 +2084,25 @@ lnames
 
 
 # Isolate the module labels in the order they appear in ordered module eigengenes
-femModuleLabels = substring(names(femaleMEs), 3)
+Vassena.ModuleLabels = substring(names(Vassena.MEs), 3)
 consModuleLabels = substring(names(consMEs[[1]]$data), 3)
 # Convert the numeric module labels to color labels
-femModules = labels2colors(as.numeric(femModuleLabels))
+Vassena.Modules = labels2colors(as.numeric(Vassena.ModuleLabels))
 consModules = labels2colors(as.numeric(consModuleLabels))
-# Numbers of female and consensus modules
-nFemMods = length(femModules)
+# Numbers of Vassena and consensus modules
+nVassena.Mods = length(Vassena.Modules)
 nConsMods = length(consModules)
 # Initialize tables of p-values and of the corresponding counts
-pTable = matrix(0, nrow = nFemMods, ncol = nConsMods)
-CountTbl = matrix(0, nrow = nFemMods, ncol = nConsMods)
+pTable = matrix(0, nrow = nVassena.Mods, ncol = nConsMods)
+CountTbl = matrix(0, nrow = nVassena.Mods, ncol = nConsMods)
 # Execute all pairwaise comparisons
-for (fmod in 1:nFemMods)
+for (fmod in 1:nVassena.Mods)
         for (cmod in 1:nConsMods)
         {
-                femMembers = (femaleColors == femModules[fmod])
+                Vassena.Members = (Vassena.Colors == Vassena.Modules[fmod])
                 consMembers = (moduleColors == consModules[cmod])
-                pTable[fmod, cmod] = -log10(fisher.test(femMembers, consMembers, alternative = "greater")$p.value)
-                CountTbl[fmod, cmod] = sum(femaleColors == femModules[fmod] & moduleColors ==
+                pTable[fmod, cmod] = -log10(fisher.test(Vassena.Members, consMembers, alternative = "greater")$p.value)
+                CountTbl[fmod, cmod] = sum(Vassena.Colors == Vassena.Modules[fmod] & moduleColors ==
                                                    consModules[cmod])
         }
 
@@ -2092,23 +2118,23 @@ for (fmod in 1:nFemMods)
 pTable[is.infinite(pTable)] = 1.3*max(pTable[is.finite(pTable)])
 pTable[pTable>50 ] = 50 
 # Marginal counts (really module sizes)
-femModTotals = apply(CountTbl, 1, sum)
+Vassena.ModTotals = apply(CountTbl, 1, sum)
 consModTotals = apply(CountTbl, 2, sum)
 # Actual plotting
-pdf(file = "Plots/ConsensusVsFemaleModules.pdf", wi = 10, he = 7)
+#pdf(file = "Plots/ConsensusVsVassenaModules.pdf", wi = 10, he = 7)
 par(mfrow=c(1,1))
 par(cex = 1.0)
 par(mar=c(8, 10.4, 2.7, 1)+0.3)
 # Use function labeledHeatmap to produce the color-coded table with all the trimmings
 labeledHeatmap(Matrix = pTable,
                xLabels = paste(" ", consModules),
-               yLabels = paste(" ", femModules),
+               yLabels = paste(" ", Vassena.Modules),
                colorLabels = TRUE,
                xSymbols = paste("Cons ", consModules, ": ", consModTotals, sep=""),
-               ySymbols = paste("Fem ", femModules, ": ", femModTotals, sep=""),
+               ySymbols = paste("Fem ", Vassena.Modules, ": ", Vassena.ModTotals, sep=""),
                textMatrix = CountTbl,
                colors = greenWhiteRed(100)[50:100],
-               main = "Correspondence of Female set-specific and Female-Male consensus modules",
+               main = "Correspondence of Vassena set-specific and Vassena-Danwei consensus modules",
                cex.text = 1.0, cex.lab = 1.0, setStdMargins = FALSE)
 dev.off()
 
@@ -2164,7 +2190,7 @@ MEColors = labels2colors(as.numeric(substring(names(consMEs[[1]]$data), 3)))
 MEColorNames = paste("ME", MEColors, sep="")
 # Open a suitably sized window (the user should change the window size if necessary)
 
-pdf(file = "Plots/ModuleTraitRelationships-female.pdf", wi = 10, he = 7)
+#pdf(file = "Plots/ModuleTraitRelationships-Vassena.pdf", wi = 10, he = 7)
 # Plot the module-trait relationship table for set number 1
 set = 1
 textMatrix =  paste(signif(moduleTraitCor[[set]], 2), "\n(",
@@ -2182,14 +2208,14 @@ labeledHeatmap(Matrix = moduleTraitCor[[set]],
                cex.text = 0.5,
                zlim = c(-1,1),
                main = paste("Module--trait relationships in", setLabels[set]))
-dev.off()
+
 # Plot the module-trait relationship table for set number 2
 set = 2
 textMatrix =  paste(signif(moduleTraitCor[[set]], 2), "\n(",
                     signif(moduleTraitPvalue[[set]], 1), ")", sep = "")
 dim(textMatrix) = dim(moduleTraitCor[[set]])
 
-pdf(file = "Plots/ModuleTraitRelationships-male.pdf", wi = 10, he = 7)
+#pdf(file = "Plots/ModuleTraitRelationships-Danwei.pdf", wi = 10, he = 7)
 par(mar = c(6, 8.8, 3, 2.2))
 labeledHeatmap(Matrix = moduleTraitCor[[set]],
                xLabels = names(Traits[[set]]$data),
@@ -2202,7 +2228,7 @@ labeledHeatmap(Matrix = moduleTraitCor[[set]],
                cex.text = 0.5,
                zlim = c(-1,1),
                main = paste("Module--trait relationships in", setLabels[set]))
-dev.off()
+#dev.off()
 
 
 #=====================================================================================
@@ -2217,10 +2243,14 @@ consensusCor = matrix(NA, nrow(moduleTraitCor[[1]]), ncol(moduleTraitCor[[1]]))
 consensusPvalue = matrix(NA, nrow(moduleTraitCor[[1]]), ncol(moduleTraitCor[[1]]))
 # Find consensus negative correlations
 negative = moduleTraitCor[[1]] < 0 & moduleTraitCor[[2]] < 0
+# Remove NA
+negative <- negative[,!apply(negative,2,anyNA)]
 consensusCor[negative] = pmax(moduleTraitCor[[1]][negative], moduleTraitCor[[2]][negative])
 consensusPvalue[negative] = pmax(moduleTraitPvalue[[1]][negative], moduleTraitPvalue[[2]][negative])
 # Find consensus positive correlations
 positive = moduleTraitCor[[1]] > 0 & moduleTraitCor[[2]] > 0
+# Remove NA
+positive <- positive[,!apply(positive,2,anyNA)]
 consensusCor[positive] = pmin(moduleTraitCor[[1]][positive], moduleTraitCor[[2]][positive])
 consensusPvalue[positive] = pmax(moduleTraitPvalue[[1]][positive], moduleTraitPvalue[[2]][positive])
 
@@ -2236,7 +2266,7 @@ textMatrix =  paste(signif(consensusCor, 2), "\n(",
                     signif(consensusPvalue, 1), ")", sep = "")
 dim(textMatrix) = dim(moduleTraitCor[[set]])
 
-pdf(file = "Plots/ModuleTraitRelationships-consensus.pdf", wi = 10, he = 7)
+#pdf(file = "Plots/ModuleTraitRelationships-consensus.pdf", wi = 10, he = 7)
 par(mar = c(6, 8.8, 3, 2.2))
 labeledHeatmap(Matrix = consensusCor,
                xLabels = names(Traits[[set]]$data),
@@ -2258,12 +2288,21 @@ labeledHeatmap(Matrix = consensusCor,
 #
 #=====================================================================================
 
+allgenes <- colnames(multiExpr[[1]]$data)
+#file = "GeneAnnotation.csv"
+#annot = read.csv(file = file)
+# Read in the annotation file
+mart <- useMart("ensembl")
+ensembl <- useDataset("hsapiens_gene_ensembl", mart)
+annot <-getBM(attributes = c("ensembl_gene_id", #Gene stable ID
+                             "external_gene_name"), #Gene name
+#                             "go_id"),   #GO term accession
+              filters = "external_gene_name", values = allgenes,  #save time with filter
+              mart = ensembl)
 
-file = "GeneAnnotation.csv"
-annot = read.csv(file = file)
 # Match probes in the data set to the probe IDs in the annotation file 
 probes = names(multiExpr[[1]]$data)
-probes2annot = match(probes, annot$substanceBXH)
+probes2annot = match(allgenes, annot$external_gene_name)
 
 
 #=====================================================================================
@@ -2307,7 +2346,7 @@ GSmat = rbind(GS[[1]]$cor, GS[[2]]$cor, GS[[1]]$p, GS[[2]]$p, GS.metaZ, GS.metaP
 nTraits = checkSets(Traits)$nGenes
 traitNames = colnames(Traits[[1]]$data)
 dim(GSmat) = c(nGenes, 6*nTraits)
-rownames(GSmat) = probes
+rownames(GSmat) = allgenes
 colnames(GSmat) = spaste(
         c("GS.set1.", "GS.set2.", "p.GS.set1.", "p.GS.set2.", "Z.GS.meta.", "p.GS.meta"),
         rep(traitNames, rep(6, nTraits)))
@@ -2316,7 +2355,7 @@ kMEmat = rbind(kME[[1]]$cor, kME[[2]]$cor, kME[[1]]$p, kME[[2]]$p, kME.metaZ, kM
 MEnames = colnames(consMEs.unord[[1]]$data)
 nMEs = checkSets(consMEs.unord)$nGenes
 dim(kMEmat) = c(nGenes, 6*nMEs)
-rownames(kMEmat) = probes
+rownames(kMEmat) = allgenes
 colnames(kMEmat) = spaste(
         c("kME.set1.", "kME.set2.", "p.kME.set1.", "p.kME.set2.", "Z.kME.meta.", "p.kME.meta"),
         rep(MEnames, rep(6, nMEs)))
@@ -2329,8 +2368,8 @@ colnames(kMEmat) = spaste(
 #=====================================================================================
 
 
-info = data.frame(Probe = probes, GeneSymbol = annot$gene_symbol[probes2annot],
-                  EntrezID = annot$LocusLinkID[probes2annot],
+info = data.frame(Probe = allgenes, GeneSymbol = annot$external_gene_name[probes2annot],
+                  EntrezID = annot$ensembl_gene_id[probes2annot],
                   ModuleLabel = moduleLabels,
                   ModuleColor = labels2colors(moduleLabels),
                   GSmat,
@@ -2351,8 +2390,8 @@ options(stringsAsFactors = FALSE)
 # Basic settings: we work with two data sets
 nSets = 2
 # For easier labeling of plots, create a vector holding descriptive names of the two sets.
-setLabels = c("Female liver", "Male liver")
-shortLabels = c("Female", "Male")
+setLabels = c("Vassena cells", "Danwei cells")
+shortLabels = c("Vassena", "Danwei")
 # Load the data saved in the first part
 lnames = load(file = "Consensus-dataInput.RData")
 #The variable lnames contains the names of loaded variables.
@@ -2370,16 +2409,16 @@ lnames
 
 
 # Create a variable weight that will hold just the body weight of mice in both sets
-weight = vector(mode = "list", length = nSets)
+Cell.Stage = vector(mode = "list", length = nSets)
 for (set in 1:nSets)
 {
-        weight[[set]] = list(data = as.data.frame(Traits[[set]]$data$weight_g))
-        names(weight[[set]]$data) = "weight"
+        Cell.Stage[[set]] = list(data = as.data.frame(Traits[[set]]$data$Cell.Stage))
+        names(Cell.Stage[[set]]$data) = "Cell.Stage"
 }
 # Recalculate consMEs to give them color names
 consMEsC = multiSetMEs(multiExpr, universalColors = moduleColors)
 # We add the weight trait to the eigengenes and order them by consesus hierarchical clustering:
-MET = consensusOrderMEs(addTraitToMEs(consMEsC, weight))
+MET = consensusOrderMEs(addTraitToMEs(consMEsC, Cell.Stage))
 
 
 #=====================================================================================
@@ -2390,8 +2429,9 @@ MET = consensusOrderMEs(addTraitToMEs(consMEsC, weight))
 
 
 
-pdf(file = "Plots/EigengeneNetworks.pdf", width= 8, height = 10)
+#pdf(file = "Plots/EigengeneNetworks.pdf", width= 8, height = 10)
 par(cex = 0.9)
+par(oma=c(2,2,2,2))
 plotEigengeneNetworks(MET, setLabels, marDendro = c(0,2,2,1), marHeatmap = c(3,3,2,1),
                       zlimPreservation = c(0.5, 1), xLabelsAngle = 90)
 dev.off()
