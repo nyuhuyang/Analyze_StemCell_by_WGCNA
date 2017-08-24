@@ -706,3 +706,11 @@ ggplot(data=sale.data,aes(amount))+
 
 "Cheat Sheets for Plotting Symbols and Color Palettes"
 #http://vis.supstat.com/2013/04/plotting-symbols-and-color-palettes/
+
+
+#2017-08-22
+#remove one element from vector
+d[!(names(d) %in% "X")]
+#remove first element from vector
+d[(names(d)[-1])]
+
