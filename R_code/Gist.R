@@ -714,3 +714,29 @@ d[!(names(d) %in% "X")]
 #remove first element from vector
 d[(names(d)[-1])]
 
+#2017-08-25
+"re-arrange columns with special order"
+naive_matrix <- matrix[,naive_cells[,"file_names"]] #wrong!
+naive_matrix <- matrix[,as.numeric(rownames(naive_cells))] #correct!
+
+
+"Show row name on the left side of pheatmap"
+# Tried to use annotation_row, didn't work
+annotation_row <- data.frame(rowname = naive_cells$cell_names[1:24])
+rownames(annotation_row) <- rownames(c[1:24,])
+
+
+"R define dimensions of empty data frame"
+m <- data.frame(matrix(NA, ncol = 2, nrow = 2))
+
+
+"Average of values in columns in dataframe?"
+mean(c[rownames(c)=="Oocyte",colnames(c)=="Oocyte"])
+
+
+"How do I add text to pheatmap?"
+a <- matrix(rnorm(100), 10, 10)
+pheatmap(a, cluster_rows = F, cluster_cols = F)
+
+grid.text(1:100, x=seq(0.1, 0.91, length.out=10), 
+          y=rep(seq(0, 1, 0.1)+0.05, each=10))
