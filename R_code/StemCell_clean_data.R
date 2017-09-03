@@ -14,10 +14,11 @@ if(length(new.packages)) install.packages(new.packages)
 library(easypackages)
 
 source("https://bioconductor.org/biocLite.R")
-list.of.bio.packages <- c("AnnotationDbi", "impute", "org.Mm.eg.db","GO.db",
+list.of.bio.packages <- c("AnnotationDbi", "impute", "org.Mm.eg.db","GO.db","GEOquery",
                           "edgeR","preprocessCore")
 new.packages <- list.of.bio.packages[!(list.of.bio.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) biocLite(new.packages)
+
 
 libraries(list.of.bio.packages,list.of.cran.packages)
 ########################################################################################
@@ -81,7 +82,7 @@ colnames(anno) <-c("!Sample_title","gene")
 anno_MicroArrayData <- merge(anno, MicroArrayData)
 anno_MicroArrayData <- anno_MicroArrayData[order(anno_MicroArrayData[,"gene"]),]
 anno_MicroArrayData <- anno_MicroArrayData[,-1]
-collectGarbage();
+
 # =====================================================================================
 # 
 #  1.b Expression data---rnaseq_rowcounts
@@ -114,9 +115,9 @@ expr1 <- DGEList(myCPM.keep)
 
 par(mfrow=c(2,1))
 
-barplot(expr0$samples$lib.size,names=colnames(expr),las=2)
+barplot(expr0$samples$lib.size,names=colnames(expr0),las=2)
 title("Barplot of library sizes")
-barplot(expr1$samples$lib.size,names=colnames(expr),las=2)
+barplot(expr1$samples$lib.size,names=colnames(expr1),las=2)
 
 # Get log2 counts per million
 logcounts0 <- cpm(expr0,log=TRUE)
@@ -138,7 +139,7 @@ plotMDS(expr1)
 #put gene column back
 myCPM.keep <- cbind(rownames(myCPM.keep),myCPM.keep) 
 colnames(myCPM.keep)[1] <- "gene"
-collectGarbage();
+
 # =====================================================================================
 # 
 #  1.c overall similarity

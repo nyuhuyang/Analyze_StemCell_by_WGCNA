@@ -17,13 +17,13 @@
 # 
 # ######################################################################
 
-list.of.cran.packages<- c("easypackages","WGCNA")
+list.of.cran.packages<- c("easypackages")
 new.packages <- list.of.cran.packages[!(list.of.cran.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
 library(easypackages)
 
 source("https://bioconductor.org/biocLite.R")
-list.of.bio.packages <- c("biomaRt")
+list.of.bio.packages <- c("WGCNA","biomaRt")
 new.packages <- list.of.bio.packages[!(list.of.bio.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) biocLite(new.packages)
 
@@ -36,8 +36,8 @@ if (Sys.info()[['sysname']]=="Darwin"){
         setwd("/Users/yah2014/Dropbox/Public/Olivier/R/Danwei_StemCell/dataset");getwd();list.files()}
 if (Sys.info()[['sysname']]=="Windows"){
         setwd("C:/Users/User/Dropbox/Public/Olivier/R/Danwei_StemCell/dataset");getwd();list.files()}
-if (Sys.info()[['sysname']]=="Linux"){
-        setwd("/pbtech_mounts/homes030/yah2014/R/Danwei_StemCell/dataset");getwd();list.files()}
+#Increase momery
+memory.limit(size=65000)
 # The following setting is important, do not omit.
 options(stringsAsFactors = FALSE)
 # Allow multi-threading within WGCNA. This helps speed up certain calculations.
@@ -49,10 +49,11 @@ options(stringsAsFactors = FALSE)
 if (!is.na(Sys.getenv("RSTUDIO", unset = NA))) disableWGCNAThreads()
 if (is.na(Sys.getenv("RSTUDIO", unset = NA)))  enableWGCNAThreads()
 
-#extract the top 5000 most variant genes for WGCNA studies.
+#extract the top 15000 most variant genes for WGCNA studies.
 #set up the extract
 #extract <- TRUE
 extract <- FALSE
+
 
 ########################################################################################
 #
@@ -158,9 +159,7 @@ keepSamples = (clust==1)
 datExpr = datExpr0[keepSamples, ]
 nGenes = ncol(datExpr)
 nSamples = nrow(datExpr)
-#extract the top 5000 most variant genes for WGCNA studies.
-#transpose matrix to correlate genes in the following
-if(extract==TRUE){datExpr = datExpr[,order(apply(datExpr,2,mad), decreasing = T)[1:5000]]}
+
 
 
 #-------------------------------------------------------------------------
@@ -226,117 +225,6 @@ save(datExpr, datTraits, file = "Vassena-01-dataInput.RData")
 
 #====5.1.2 Network construction and module detection (required)=============================
 
-#====5.1.2a. Automatic, one-step network construction and module detection
-
-#=====================================================================================
-#  Code chunk5.1.2a-1
-#
-#=====================================================================================
-
-# Allow multi-threading within WGCNA. This helps speed up certain calculations.
-# At present this call is necessary for the code to work.
-# Any error here may be ignored but you may want to update WGCNA if you see one.
-# Caution: skip this line if you run RStudio or other third-party R environments. 
-# See note above.
-
-if (!is.na(Sys.getenv("RSTUDIO", unset = NA))) disableWGCNAThreads()
-if (is.na(Sys.getenv("RSTUDIO", unset = NA)))  enableWGCNAThreads()
-# enableWGCNAThreads()
-# Load the data saved in the first part
-lnames = load(file = "Vassena-01-dataInput.RData")
-#The variable lnames contains the names of loaded variables.
-lnames
-#extract the top 5000 most variant genes for WGCNA studies.
-#transpose matrix to correlate genes in the following
-if(extract==TRUE){datExpr = datExpr[,order(apply(datExpr,2,mad), decreasing = T)[1:5000]]}
-#=====================================================================================
-#
-#  Code chunk5.1.2a-2
-# labs.genetics.ucla.edu/horvath/CoexpressionNetwork/Rpackages/WGCNA/faq.html
-#=====================================================================================
-
-
-# Choose a set of soft-thresholding powers ?????????????????????
-powers = c(c(1:10), seq(from = 12, to=20, by=2)) 
-# Call the network topology analysis function
-sft = pickSoftThreshold(datExpr, powerVector = powers, verbose = 5) #takes long time
-# Plot the results:
-par(mar=c(2,4,2,4))
-par(mfrow = c(1,2))
-cex1 = 0.9
-# Scale-free topology fit index as a function of the soft-thresholding power
-plot(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
-     xlab="Soft Threshold (power)",ylab="Scale Free Topology Model Fit,signed R^2",type="n",
-     main = paste("Scale independence"))
-text(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
-     labels=powers,cex=cex1,col="red")
-# this line corresponds to using an R^2 cut-off of h
-abline(h=0.60,col="red")
-# Mean connectivity as a function of the soft-thresholding power
-plot(sft$fitIndices[,1], sft$fitIndices[,5],
-     xlab="Soft Threshold (power)",ylab="Mean Connectivity", type="n",
-     main = paste("Mean connectivity"))
-text(sft$fitIndices[,1], sft$fitIndices[,5], labels=powers, cex=cex1,col="red")
-#chose power for Unsigned and signed hybrid networks networks 
-#https://labs.genetics.ucla.edu/horvath/CoexpressionNetwork/Rpackages/WGCNA/faq.html
-cuts <- c(0, 20, 30, 40,60, Inf)
-chose.power <- c(10, 9,8,7,6)
-power <- chose.power[findInterval(nrow(datExpr), cuts)]
-power
-
-#=====================================================================================
-#
-#  Code chunk5.1.2a-3
-# 
-#=====================================================================================
-
-# Constructing the gene network and identifying modules is now a simple function call:
-#?????????????????????
-net = blockwiseModules(datExpr, 
-                       power = power,#power = 6 soft-thresholding power for network construction.
-                       TOMType = "signed", minModuleSize = 30,
-                       reassignThreshold = 0, mergeCutHeight = 0.25,
-                       numericLabels = TRUE, pamRespectsDendro = FALSE,
-                       saveTOMs = TRUE,
-                       saveTOMFileBase = "Vassena.TOM", 
-                       verbose = 3) #takes long time
-# To see how many modules were identified and what the module sizes are
-table(net$colors)
-
-#=====================================================================================
-#
-#  Code chunk5.1.2a-4
-#
-#=====================================================================================
-
-
-# ??????????????????
-
-# Convert labels to colors for plotting
-mergedColors = labels2colors(net$colors)
-# Plot the dendrogram and the module colors underneath
-plotDendroAndColors(net$dendrograms[[1]], mergedColors[net$blockGenes[[1]]],
-                    "Module colors",
-                    dendroLabels = FALSE, hang = 0.03,
-                    addGuide = TRUE, guideHang = 0.05)
-
-
-#=====================================================================================
-#
-#  Code chunk5.1.2a-5
-#
-#=====================================================================================
-
-
-moduleLabels = net$colors
-moduleColors = labels2colors(net$colors)
-MEs = net$MEs
-geneTree = net$dendrograms[[1]]
-save(MEs, moduleLabels, moduleColors, geneTree, 
-     file = "Vassena-02-networkConstruction-auto.RData")
-
-#====> # jump to chunk5.1.6-4
-
 
 #=====5.1.2b Step-by-step network construction and module detection======
 #=====================================================================================
@@ -349,17 +237,14 @@ save(MEs, moduleLabels, moduleColors, geneTree,
 lnames = load(file = "Vassena-01-dataInput.RData")
 #The variable lnames contains the names of loaded variables.
 lnames
-#extract the top 5000 most variant genes for WGCNA studies.
+#extract the top 15000 most variant genes for WGCNA studies.
 #transpose matrix to correlate genes in the following
-if(extract==TRUE){datExpr = datExpr[,order(apply(datExpr,2,mad), decreasing = T)[1:5000]]}
-
+if(extract==TRUE){datExpr = datExpr[,order(apply(datExpr,2,mad), decreasing = T)[1:15000]]}
 #=====================================================================================
 #
 #  Code chunk5.1.2b-2
-# labs.genetics.ucla.edu/horvath/CoexpressionNetwork/Rpackages/WGCNA/faq.html
+#  Xue Nature 2013
 #=====================================================================================
-
-
 # Choose a set of soft-thresholding powers
 powers = c(c(1:10), seq(from = 12, to=20, by=2))
 # Call the network topology analysis function
@@ -381,36 +266,32 @@ plot(sft$fitIndices[,1], sft$fitIndices[,5],
      xlab="Soft Threshold (power)",ylab="Mean Connectivity", type="n",
      main = paste("Mean connectivity"))
 text(sft$fitIndices[,1], sft$fitIndices[,5], labels=powers, cex=cex1,col="red")
-
-#chose power for Unsigned and signed hybrid networks networks 
-#https://labs.genetics.ucla.edu/horvath/CoexpressionNetwork/Rpackages/WGCNA/faq.html
-cuts <- c(0, 20, 30, 40,60, Inf)
-chose.power <- c(10, 9,8,7,6)
-power <- chose.power[findInterval(nrow(datExpr), cuts)]
-power
+power =12
 #=====================================================================================
 #
 #  Code chunk5.1.2b-3
 #
 #=====================================================================================
 #generated similarity matrices S based on Pearson correlations between all gene pairs"
-S <- 0.5 + 0.5*cor(datExpr, method="spearman") #Sij = 0.5 + 0.5 × cor(i,j)
+#S <- 0.5 + 0.5*cor(datExpr, method="spearman") #Sij = 0.5 + 0.5 × cor(i,j)
 
 
-#????????????:(1) Co-expression similarity and adjacency
+#:(1) Co-expression similarity and adjacency
 #built adjacency matrices for each dataset using a soft power threshold of 60
-adjacency = adjacency.fromSimilarity(S, power = power,type = "signed") #type = "signed"! #power =softPower
+adjacency = adjacency.fromSimilarity(( 0.5 + 0.5*cor(datExpr, method="spearman")), power = power,type = "signed") #type = "signed"! #power =softPower
+collectGarbage()
 SubGeneNames <-rownames(adjacency)
 
 #=====================================================================================
 #
-#  Code chunk5.1.2b-4f
+#  Code chunk5.1.2b-4
 # https://www.researchgate.net/post/What_do_adjacency_matrix_and_Topology_Overlap_Matrix_from_WGCNA_package_tell_about_the_data
 #=====================================================================================
 # To minimize effects of noise and spurious associations
-# ????????????????????????????????????,Turn adjacency into topological overlap
+# Turn adjacency into topological overlap
 # calculate the corresponding dissimilarity
 TOM = TOMsimilarity(adjacency)
+collectGarbage()
 rownames(TOM) <- SubGeneNames
 colnames(TOM) <- SubGeneNames #same like abov
 dissTOM = 1-TOM
@@ -421,7 +302,6 @@ dissTOM = 1-TOM
 #
 #=====================================================================================
 
-#??????????????????
 # Call the hierarchical clustering function
 geneTree = hclust(as.dist(dissTOM), method = "average")
 # Plot the resulting clustering tree (dendrogram)
@@ -436,7 +316,6 @@ plot(geneTree, xlab="", sub="", main = "Gene clustering on TOM-based dissimilari
 #
 #=====================================================================================
 
-#?????????????????????dynamicTreeCut
 # We like large modules, so we set the minimum module size relatively high:
 minModuleSize = 30
 # Module identification using dynamic tree cut:
@@ -452,7 +331,6 @@ table(dynamicMods)
 #
 #=====================================================================================
 
-#??????????????????
 # Convert numeric lables into colors
 dynamicColors = labels2colors(dynamicMods)
 table(dynamicColors)
@@ -470,9 +348,6 @@ plotDendroAndColors(geneTree, dynamicColors, "Dynamic Tree Cut",
 #
 #=====================================================================================
 
-#?????????????????????????????????,Merging of modules whose expression profiles are very similar
-#?????????????????????leaf???????????????,??????????????????,
-#?????????????????????????????????????????????????????????,???????????????????????????modules????????????
 # Calculate eigengenes
 MEList = moduleEigengenes(datExpr, colors = dynamicColors)
 #moduleEigengenes represents the module expressions of the q-th module by the module eigengene E
@@ -495,7 +370,6 @@ plot(METree, main = "Clustering of module eigengenes",
 #
 #=====================================================================================
 
-#?????????75%????????????????????????
 MEDissThres = 0.25
 # Plot the cut line into the dendrogram
 abline(h=MEDissThres, col = "red")
@@ -514,14 +388,12 @@ mergedMEs = merge$newMEs
 #=====================================================================================
 
 
-#???????????????(Dynamic Tree Cut)????????????(Merged dynamic)????????????
 #pdf(file = "Plots/geneDendro-3.pdf", wi = 9, he = 6)
 plotDendroAndColors(geneTree, cbind(dynamicColors, mergedColors),
                     c("Dynamic Tree Cut", "Merged dynamic"),
                     dendroLabels = FALSE, hang = 0.03,
                     addGuide = TRUE, guideHang = 0.05)
 #dev.off()
-#??????????????????????????????
 #plotDendroAndColors(geneTree,mergedColors,"Merged dynamic",
 #                    dendroLabels = FALSE, hang = 0.03,
 #                    addGuide = TRUE, guideHang = 0.05)
@@ -1031,7 +903,6 @@ nSamples = nrow(datExpr)
 #
 #=====================================================================================
 
-# ???????????????????????????
 # Calculate topological overlap anew: this could be done more efficiently by saving the TOM
 # calculated during module detection, but let us do it again here.
 dissTOM = 1-TOMsimilarityFromExpr(datExpr, power = power)
@@ -1052,7 +923,6 @@ TOMplot(plotTOM, geneTree, moduleColors, main = "Network heatmap plot, all genes
 #
 #=====================================================================================
 
-#????????????400?????????????????????
 nSelect = 400
 # For reproducibility, we set the random seed
 set.seed(10)
@@ -1373,9 +1243,9 @@ for (set in 1:nSets)
 
 
 # Choose the "base" cut height for the Vassena data set
-baseHeight = 140
+baseHeight = 150
 # Adjust the cut height for the Danwei data set for the number of samples
-cutHeights = c(140, 140*exprSize$nSamples[2]/exprSize$nSamples[1])
+cutHeights = c(150, 140*exprSize$nSamples[2]/exprSize$nSamples[1])
 # Re-plot the dendrograms including the cut lines
 #skip pdf(file = "Plots/SampleClustering.pdf", width = 12, height = 12)
 par(mfrow=c(2,1))
@@ -1543,7 +1413,7 @@ dev.off()
 
 
 net = blockwiseConsensusModules(
-        multiExpr, power = 6, minModuleSize = 30, deepSplit = 2,
+        multiExpr, power = 12, minModuleSize = 30, deepSplit = 2,
         pamRespectsDendro = FALSE, 
         mergeCutHeight = 0.25, numericLabels = TRUE,
         minKMEtoStay = 0,
@@ -1579,8 +1449,8 @@ plotDendroAndColors(consTree, moduleColors,
                     addGuide = TRUE, guideHang = 0.05,
                     main = "Consensus gene dendrogram and module colors")
 
-dev.off()
-
+"Error in plotOrderedColors(dendro$order, colors = colors, rowLabels = rowLabels,  : 
+  ERROR: length of colors vector not compatible with number of objects in 'order'."
 
 #=====================================================================================
 #
@@ -1686,9 +1556,7 @@ softPower = 12
 adjacencies = array(0, dim = c(nSets, nGenes, nGenes))
 # Calculate adjacencies in each individual data set
 for (set in 1:nSets)
-        adjacencies[set, , ] =(0.5 + 0.5*cor(multiExpr[[set]]$data, method = "spearman"))^softPower
-collectGarbage()
-
+        adjacencies[set, , ] = abs(cor(multiExpr[[set]]$data, use = "p"))^softPower
 
 
 #=====================================================================================
@@ -1703,7 +1571,7 @@ TOM = array(0, dim = c(nSets, nGenes, nGenes))
 # Calculate TOMs in each individual data set
 for (set in 1:nSets)
         TOM[set, , ] = TOMsimilarity(adjacencies[set, , ])
-collectGarbage()
+
 
 #=====================================================================================
 #

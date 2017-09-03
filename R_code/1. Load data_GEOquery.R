@@ -53,15 +53,31 @@ sampleNames(eData) <-pData(eData)$title
 #saveRDS(eData,"Vassena_eData")
 par(mfrow=c(1,1))
 par(mar=c(16,4,3,1))
-boxplot(eData, ylab = "log2 counts",las = 3,cex=1.3,
+boxplot(eData, ylab = "counts",las = 3,cex=1.3,
         main ="Microarray for early human pluripotent stem cells (GSE29397)")
+head(exprs(eData))
+#===> jump to 1.2.6 if GSE29397
+#==log transform=====================
+rs <- rowSums(exprs(eData)) #filter
+log.norm.counts <- log2(exprs(eData)[rs > 0,] + 1) #class "matrix"
+
+#===> jump to 1.2.6 if GSE18290
+par(mfrow=c(1,2))
+par(mar=c(5,2,2,2))
+boxplot(log2(exprs(eData) + 1),ylab = "log2 counts",las = 3,
+        main="log counts") # not normalized
+
+boxplot(log2(exprs(eData)[rs > 0,] + 1),ylab = "log2 counts",las = 3,
+        main="log counts") # not normalized
+
+#===>
 #normData <- rma(rawData) #  already normalized, doesn't work 
 #normlize
 
 
 # ----------1.1.2 Loading raw data (Alternative)--------------------------------
 #too slow, enough data from GSE29397
-eList2 <- getGEOSuppFiles("GSE29397")
+eList2 <- getGEOSuppFiles("GSE18290")
 eList2
 list.files("GSE29397")
 untar("GSE29397/GSE29397_RAW.tar", exdir = "GSE29397/CEL")
@@ -138,7 +154,7 @@ saveRDS(normData,"Xie_normData")
 # ####################################################################
 
 #======1.2.1 Loading annotation data (Recommend)=================
-annotation(rawData)
+annotation(eData)
 platf <- getGEO(annotation(eData), AnnotGPL=TRUE)
 anot <- data.frame(attr(dataTable(platf), "table"))
 anot1<- str_split_fixed(anot[,"Gene.symbol"], "///",2) #split column Gene.symbol
@@ -157,29 +173,37 @@ library(biomaRt)
 # downlaod annotationfrom biomAT
 mart <- useMart("ensembl")
 ensembl <- useDataset("hsapiens_gene_ensembl", mart)
+listAttributes <-listAttributes(ensembl)
+grepl("U133",listAttributes)
+listAttributes[grepl("U133",listAttributes[,2]),]
+
+
 annot <-getBM(attributes = c("ensembl_gene_id", #Gene stable ID
                      "external_gene_name", #Gene name
-                     "go_id",   #GO term accession
-                     "affy_hugene_1_0_st_v1"), #AFFY HuGene 1 0 st v1
-      filters = "affy_hugene_1_0_st_v1", values = allprobe,  #save time with filter
+#                     "go_id",   #GO term accession
+                     "affy_hg_u133_plus_2"), #if GSE29397 affy_hugene_1_0_st_v1
+      filters = "affy_hg_u133_plus_2", values = allprobe,  #save time with filter
       mart = ensembl)
-table(annot$affy_hugene_1_0_st_v1 %in% allprobe)
-table(table(annot$affy_hugene_1_0_st_v1))
+table(annot$affy_hg_u133_plus_2 %in% allprobe)
+table(table(annot$affy_hg_u133_plus_2))
 
-gene2annot = match(allprobe, annot$affy_hugene_1_0_st_v1)
+gene2annot = match(allprobe, annot$affy_hg_u133_plus_2)
 gene2annot <- gene2annot[!is.na(gene2annot)] #Remove all NA values from a vector
 # Get the corresponding GO IDs
-anno = annot[gene2annot,c("affy_hugene_1_0_st_v1","external_gene_name")] 
-anyNA(anno$affy_hugene_1_0_st_v1) # test empty elements in the vector
+anno = annot[gene2annot,c("affy_hg_u133_plus_2","external_gene_name")] 
+anyNA(anno$affy_hg_u133_plus_2) # test empty elements in the vector
 #allLLIDs <- allLLIDs[allLLIDs !=""] #Remove the empty element in the vector
 colnames(anno) <-c("Probe_ID","Gene_name")
 
 #===============1.2.6 replace affymetrix ID to gene ID (Required)==================##
-#Probe_ID <- as.numeric(rownames(exprs(eData))) 
+#if GSE29397
 Probe_ID <- rownames(exprs(eData)) 
 MicroArrayData<- cbind.data.frame(Probe_ID,exprs(eData))
+#if GSE18290
+Probe_ID <- rownames(log.norm.counts) 
+MicroArrayData<- cbind.data.frame(Probe_ID,log.norm.counts)
 
-anno_MicroArrayData <- merge(anno, MicroArrayData, all = TRUE)
+anno_MicroArrayData <- merge(anno,MicroArrayData,by ="Probe_ID")
 anno_MicroArrayData <- anno_MicroArrayData[!is.na(anno_MicroArrayData[,3]),] #remove NA row in exprs
 anno_MicroArrayData <- anno_MicroArrayData[!is.na(anno_MicroArrayData[,"Gene_name"]),] #remove NA row in genes
 

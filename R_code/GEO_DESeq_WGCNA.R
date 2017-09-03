@@ -79,30 +79,6 @@ cls("Oocyte_to_6_Cells")
 
 
 
-# =====================================================================================
-# 
-#  3. limma ("linear models for microarray data")
-# 
-# =====================================================================================
-# Add lable
-eData$labelDescription
-eData$labelDescription <- c(rep("StemCell",20),rep("StemCellLine",4))
-eData$labelDescription <- factor(eData$labelDescription)
-#A linear model
-#Now we do a standard limma model fit
-design <- model.matrix(~ eData$labelDescription-1) 
-colnames(design) <- c("StemCell", "StemCellLine")
-fit <- lmFit(eData, design)
-contrast.matrix <- makeContrasts("StemCell-StemCellLine", levels = design)
-fitC <- contrasts.fit(fit, contrast.matrix)
-fitC <- eBayes(fitC)
-Top_table <-topTable(fitC,number=500,p.value=0.05)
-Top_probelist <- rownames(Top_table)
-
-#probe --> gene transform
-Top_genelist <- anno[(anno[,"PROBES"] %in% Top_probelist),"gene_ID"]
-Top_genelist <- droplevels(Top_genelist)
-length(Top_genelist)
 
 
 ########################################################################################
@@ -148,6 +124,7 @@ write.table(t(df3), "sample.table.cls", sep=" ")
 #delete the first row;
 #delete all "
 #delete the space before each row.
+#http://recipes.genomespace.org/view/15#collapse_5
 ########################################################################################
 
 

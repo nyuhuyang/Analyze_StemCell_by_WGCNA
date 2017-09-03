@@ -11,13 +11,13 @@
 # 
 # ######################################################################
 
-list.of.cran.packages<- c("easypackages")
+list.of.cran.packages<- c("easypackages","ggplot2")
 new.packages <- list.of.cran.packages[!(list.of.cran.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
 library(easypackages)
 
 source("https://bioconductor.org/biocLite.R")
-list.of.bio.packages <- c("DESeq2")
+list.of.bio.packages <- c("DESeq2","edgeR")
 new.packages <- list.of.bio.packages[!(list.of.bio.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) biocLite(new.packages)
 
@@ -40,9 +40,7 @@ if (Sys.info()[['sysname']]=="Darwin"){
 if (Sys.info()[['sysname']]=="Windows"){
         setwd("C:/Users/User/Dropbox/Public/Olivier/R/Danwei_StemCell/dataset");getwd();list.files()}
 
-countdata <- read.csv("rnaseq_rowcounts.csv")
-rownames(countdata) <- countdata[,1]
-countdata<-countdata[,-1]
+countdata <- read.csv("rnaseq_rowcounts.csv",row.names = 1)
 #create dds
 group <- data.frame(group = c("E8","E8","E8","PGL","PGL","PGL","SCIL","SCIL","SCIL"))
 dds <- DESeqDataSetFromMatrix(countdata,
@@ -58,8 +56,20 @@ rld <-rld[rs > 0,]
 rld
 #=============
 head(assay(rld))
-saveRDS(rld,"rld")  #===> next page
+rnaseq <- assay(rld)
+dim(rnaseq)
+rnaseq<-rnaseq[rowSums(rnaseq, na.rm = TRUE)>0,]
+dim(rnaseq)
+write.csv(rnaseq,"Danwei_rnaseq.csv")#===> next page
+#saveRDS(rld,"rld")  #===> next page
 
+#log tranform
+Chan_matrix <- read.csv("./Huang_Cell_2014/Chan_matrix.csv",row.names = 1)
+Chan_matrix_log <- log2(Chan_matrix+1)
+par(mfrow=c(1,2))
+boxplot(Chan_matrix)
+boxplot(Chan_matrix_log)
+write.csv(Chan_matrix_log,"Chan_matrix.csv")
 # ######################################################################
 # 
 #  2.2 RNA-seq DESeq visulization (Recommend)
@@ -84,18 +94,26 @@ rs <- rowSums(counts(dds)) #filter
 log.norm <- normTransform(dds) #class "DESeq2"
 log.norm.counts <- log2(counts(dds, normalized=TRUE) + 1) #class "matrix"
 
-par(mfrow=c(1,3))
-boxplot(log2(counts(dds)[rs > 0,] + 1)) # not normalized
-boxplot(log2(counts(dds, normalized=TRUE) + 1)[rs > 0,]) # normalized
-boxplot(log2(assay(log.norm)[rs > 0,] + 1)) # normalized 
+par(mfrow=c(1,2))
+par(mar=c(5,2,2,2))
+boxplot(log2(counts(dds)[rs > 0,] + 1),ylab = "log2 counts",las = 3,
+        main="Not Normalized") # not normalized
+abline(h=median(log2(counts(dds)[rs > 0,] + 1)),col="blue")
+boxplot(log2(counts(dds, normalized=TRUE) + 1)[rs > 0,],las = 3,
+        main="Normalized") # normalized
+abline(h=median(log2(counts(dds, normalized=TRUE) + 1)[rs > 0,]),col="blue")
 #The same matrix as above is stored in assay(log.norm).
 
 
 #====Stabilizing count variance(required)=======================
-par(mfrow=c(1,3))
-plot(log.norm.counts[,1:2], cex=.1)
+par(mfrow=c(1,2))
+plot(log.norm.counts[,1:2], cex=.1, ylab = "log2 counts",
+     main ="Without stabilizing variance")
 #rlog perform better when the size factors vary widely
-plot(assay(rld)[,1:2], cex=.1)
+plot(assay(rld)[,1:2], cex=.1, ylab = "log2 counts",
+     main ="stabilizing variance by rlog ")
+
+#skip 
 #varianceStabilizingTransformation is much faster
 vsd <- varianceStabilizingTransformation(dds, blind=FALSE)
 plot(assay(vsd)[,1:2], cex=.1)
@@ -121,7 +139,7 @@ plotPCA(vsd, intgroup="group")
 (data <- plotPCA(rld, intgroup=c("group"), returnData=TRUE)) 
 (percentVar <- 100*round(attr(data, "percentVar"),2))
 makeLab <- function(x,pc) paste0("PC",pc,": ",x,"% variance")
-ggplot(data, aes(PC1,PC2,col=dex,shape=cell)) + geom_point() +
+ggplot(data, aes(PC1,PC2,col=group)) + geom_point() +
         xlab(makeLab(percentVar[1],1)) + ylab(makeLab(percentVar[2],2))
 
 

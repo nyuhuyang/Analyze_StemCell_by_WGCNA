@@ -1,82 +1,88 @@
+#compare sets of transcriptional profiles in several ways:
+#    - by overall similarity eg using Spearman correlation
+#    - by similarity of signatures - usually done using GSEA (my preferred approach)
+#    - by first computing modules (using WCGNA) in each dataset,
+#        then comparing overlap of modules using hypergeometric test
+
+########################################################################
+#
+#  0 check and install all cran and bioconductor packages if necessary
+# 
+# ######################################################################
+
+list.of.cran.packages<- c("easypackages","cluster")
+new.packages <- list.of.cran.packages[!(list.of.cran.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
+library(easypackages)
+
 source("https://bioconductor.org/biocLite.R")
-list.of.packages <- c("AnnotationDbi", "impute", "org.Mm.eg.db","GO.db", "preprocessCore")
-new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+list.of.bio.packages <- c("WGCNA")
+new.packages <- list.of.bio.packages[!(list.of.bio.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) biocLite(new.packages)
 
-list.of.packages <- c("WGCNA")
-new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
-if(length(new.packages)) install.packages(new.packages)
-
-# Tutorial for the WGCNA package for R:
-# I. Network analysis of liver expression data in female mice
-
-########################################################################################
-# 1. Data input and cleaning
-# Peter Langfelder and Steve Horvath
-# November 25, 2014
-
-# 1 Data input, cleaning and pre-processing
-########################################################################################
-
-# =====================================================================================
-# 
-#  1.a Loading expression data
-# 
-# =====================================================================================
+libraries(list.of.bio.packages,list.of.cran.packages)
 
 
-# Display the current working directory
-getwd();
-# If necessary, change the path below to the directory where the data files are stored. 
-# "." means current directory. On Windows use a forward slash / instead of the usual \.
+getwd()
+
+
 if (Sys.info()[['sysname']]=="Darwin"){
-    setwd("/Users/yah2014/Dropbox/Public/Olivier/R/Practics/FemaleLiver-Data");getwd();list.files()}
+    setwd("/Users/yah2014/Dropbox/Public/Olivier/R/Danwei_StemCell/dataset/FemaleLiver-Data");getwd();list.files()}
 if (Sys.info()[['sysname']]=="Windows"){
-    setwd("C:/Users/User/Dropbox/Public/Olivier/R/Practics/FemaleLiver-Data");getwd();list.files()}
-# Load the WGCNA package
-library(WGCNA);
+    setwd("C:/Users/User/Dropbox/Public/Olivier/R/Danwei_StemCell/dataset/FemaleLiver-Data");getwd();list.files()}
 # The following setting is important, do not omit.
 options(stringsAsFactors = FALSE);
-# Read in the female liver data set
+
+########################################################################################
+#
+# 5.1 Network analysis of liver expression data from female mice: finding modules related to body weight
+#  https://labs.genetics.ucla.edu/horvath/htdocs/CoexpressionNetwork/Rpackages/WGCNA/Tutorials/
+#
+########################################################################################
+
+#====5.1.1 Data input and cleaning (required)=============================
+
+#=====================================================================================
+#
+#  Code chunk5.1.1-1
+#
+#=====================================================================================
+
+#Read in the female liver data set
 femData = read.csv("LiverFemale3600.csv");
 # Take a quick look at what is in the data set:
 dim(femData);
 names(femData);
 
 
-# =====================================================================================
-# 
-#  1.a Loading expression data
-#  remove the auxiliary data and transpose
-# 
-# =====================================================================================
-# the data files contain extra information about the surveyed probes we do not need.
-# We now remove the auxiliary data and transpose the expression data for further analysis.
+#=====================================================================================
+#
+#  Code chunk5.1.1-2
+#
+#=====================================================================================
+
 
 datExpr0 = as.data.frame(t(femData[, -c(1:8)]));
 names(datExpr0) = femData$substanceBXH;
 rownames(datExpr0) = names(femData)[-c(1:8)];
 
 
-# =====================================================================================
-# 
-#  1.b Checking data for excessive missing values and identification of outlier microarray
-#   samples
-# 
-# =====================================================================================
+#=====================================================================================
+#
+#  Code chunk5.1.1-3
+#
+#=====================================================================================
 
 
 gsg = goodSamplesGenes(datExpr0, verbose = 3);
 gsg$allOK
-# If the last statement returns TRUE, all genes have passed the cuts. 
-# If not, we remove the offending genes and samples from the data:
 
-# =====================================================================================
-# 
-#  1.b Checking data for excessive missing values and identification of outlier microarray samples
-#   remove the offending genes and samples from the data:
-# 
-# =====================================================================================
+
+#=====================================================================================
+#
+#  Code chunk5.1.1-4
+#
+#=====================================================================================
 
 
 if (!gsg$allOK)
@@ -91,31 +97,29 @@ if (!gsg$allOK)
 }
 
 
-# =====================================================================================
+#=====================================================================================
 #
-#  1.b Checking data for excessive missing values and identification of outlier microarray samples
-#  1.b (Continue) cluster the samples to find outlier
-# 
-# =====================================================================================
+#  Code chunk5.1.1-5
+#
+#=====================================================================================
 
-# in contrast to clustering genes that will come later) to see if there are any obvious outliers.
+
 sampleTree = hclust(dist(datExpr0), method = "average");
 # Plot the sample tree: Open a graphic output window of size 12 by 9 inches
 # The user should change the dimensions if the window is too large or too small.
 sizeGrWindow(12,9)
-# pdf(file = "Plots/sampleClustering.pdf", width = 12, height = 9);
+#pdf(file = "Plots/sampleClustering.pdf", width = 12, height = 9);
 par(cex = 0.6);
 par(mar = c(0,4,2,0))
 plot(sampleTree, main = "Sample clustering to detect outliers", sub="", xlab="", cex.lab = 1.5, 
      cex.axis = 1.5, cex.main = 2)
 
 
-# =====================================================================================
-# 
-#  1.b Checking data for excessive missing values and identification of outlier microarray samples
-#  1.b (Continue) remove outlier
-# 
-# =====================================================================================
+#=====================================================================================
+#
+#  Code chunk5.1.1-6
+#
+#=====================================================================================
 
 
 # Plot a line to show the cut
@@ -128,13 +132,13 @@ keepSamples = (clust==1)
 datExpr = datExpr0[keepSamples, ]
 nGenes = ncol(datExpr)
 nSamples = nrow(datExpr)
-# The variable datExpr now contains the expression data ready for network analysis.
 
-# =====================================================================================
-# 
-#  1.c Loading clinical trait data
-# 
-# =====================================================================================
+
+#=====================================================================================
+#
+#  Code chunk5.1.1-7
+#
+#=====================================================================================
 
 
 traitData = read.csv("ClinicalTraits.csv");
@@ -157,12 +161,11 @@ rownames(datTraits) = allTraits[traitRows, 1];
 collectGarbage();
 
 
-# =====================================================================================
+#=====================================================================================
 #
-#  1.c Loading clinical trait data
-#  1.c (Continue) visualize how the clinical traits relate to the sample dendrogram
-# 
-# =====================================================================================
+#  Code chunk5.1.1-8
+#
+#=====================================================================================
 
 
 # Re-cluster samples
@@ -175,68 +178,47 @@ plotDendroAndColors(sampleTree2, traitColors,
                     main = "Sample dendrogram and trait heatmap")
 
 
-# =====================================================================================
+#=====================================================================================
 #
-#  1.c Loading clinical trait data
-#  1.c (Continue) save the relevant expression and trait data for use in the next steps of the tutorial.
-# 
-# =====================================================================================
+#  Code chunk5.1.1-9
+#
+#=====================================================================================
 
 
 save(datExpr, datTraits, file = "FemaleLiver-01-dataInput.RData")
 
-##############################################################################
-# 
-# 
-#  2.a Automatic network construction and module detection
-# 
-# 
-##############################################################################
+#====5.1.2 Network construction and module detection (required)=============================
 
+#====5.1.2a. Automatic, one-step network construction and module detection
 
+#=====================================================================================
+#  Code chunk5.1.2-a1
+#
+#=====================================================================================
 
-# =====================================================================================
-# 
-#  0. Preliminaries: setting up the R session
-# 
-# =====================================================================================
-
-
-# Display the current working directory
-getwd();
-# If necessary, change the path below to the directory where the data files are stored. 
-# "." means current directory. On Windows use a forward slash / instead of the usual \.
-workingDir = ".";
-setwd(workingDir); list.files()
-# Load the WGCNA package
-library(WGCNA)
-# The following setting is important, do not omit.
-options(stringsAsFactors = FALSE);
-# Allow multi-threading within WGCNA. At present this call is necessary.
+# Allow multi-threading within WGCNA. This helps speed up certain calculations.
+# At present this call is necessary for the code to work.
 # Any error here may be ignored but you may want to update WGCNA if you see one.
-# Caution: skip this line if you run RStudio or other third-party R environments.
+# Caution: skip this line if you run RStudio or other third-party R environments. 
 # See note above.
-enableWGCNAThreads()
+# enableWGCNAThreads()
 # Load the data saved in the first part
 lnames = load(file = "FemaleLiver-01-dataInput.RData");
-# The variable lnames contains the names of loaded variables.
+#The variable lnames contains the names of loaded variables.
 lnames
 
 
-# =====================================================================================
-# 
-#  2.a.1 Choosing the soft-thresholding power: analysis of network topology
-# 
-# =====================================================================================
+#=====================================================================================
+#
+#  Code chunk5.1.2-a2
+#
+#=====================================================================================
 
 
 # Choose a set of soft-thresholding powers
 powers = c(c(1:10), seq(from = 12, to=20, by=2))
 # Call the network topology analysis function
 sft = pickSoftThreshold(datExpr, powerVector = powers, verbose = 5)
-# Error in datk[c(startG:endG), ] = foreach(t = actualThreads, .combine = rbind) %dopar%  : 
-# number of items to replace is not a multiple of replacement length
-# Use R instead of RStudio
 # Plot the results:
 sizeGrWindow(9, 5)
 par(mfrow = c(1,2));
@@ -256,48 +238,27 @@ plot(sft$fitIndices[,1], sft$fitIndices[,5],
 text(sft$fitIndices[,1], sft$fitIndices[,5], labels=powers, cex=cex1,col="red")
 
 
-# =====================================================================================
-# 
-#  2.a.2 One-step network construction and module detection
-# 
-# =====================================================================================
-# Constructing the gene network and identifying modules is now a simple function call:
-net = blockwiseModules(datExpr, power = 6, # soft thresholding power
-                       TOMType = "unsigned", minModuleSize = 30, # relatively large minimum module size
-                       reassignThreshold = 0, mergeCutHeight = 0.25,# the threshold for merging of modules.
+#=====================================================================================
+#
+#  Code chunk5.1.2-a3
+#
+#=====================================================================================
+
+
+net = blockwiseModules(datExpr, power = 6,
+                       TOMType = "unsigned", minModuleSize = 30,
+                       reassignThreshold = 0, mergeCutHeight = 0.25,
                        numericLabels = TRUE, pamRespectsDendro = FALSE,
                        saveTOMs = TRUE,
                        saveTOMFileBase = "femaleMouseTOM", 
                        verbose = 3)
-# A word of caution.
-# default value for blockwiseModules may be not approprate for other data.
-
-# A second word of caution concerning block size.
-# maxBlockSize =5000
-# Note that if this code were to be used to analyze a data set with more than 5000 probes,
-# the function blockwiseModules will split the data set into several blocks.
-# This will break some of the plotting code below
-
-# Analyze larger data sets need to do one of the following:
-# 16GB should handle up to 20000 probes;
-
-# If a computer with large-enough memory is not available, 
-# the reader should follow Section 2.c, Dealing with large datasets
 
 
-# To see how many modules were identified and what the module sizes are
-
-table(net$colors)
-# and indicates that there are 18 modules,labeled 1 through 18 in order of descending size,
-# with sizes ranging from 609 to 34 genes. 
-# The label 0 is reserved for genes outside of all modules.
-
-# =====================================================================================
-# 
-#  2.a.2 One-step network construction and module detection
-#  2.a.2 (Continue) The dendrogram
-# 
-# =====================================================================================
+#=====================================================================================
+#
+#  Code chunk5.1.2-a4
+#
+#=====================================================================================
 
 
 # open a graphics window
@@ -311,13 +272,11 @@ plotDendroAndColors(net$dendrograms[[1]], mergedColors[net$blockGenes[[1]]],
                     addGuide = TRUE, guideHang = 0.05)
 
 
-# =====================================================================================
-# 
-#  2.a.2 One-step network construction and module detection
-#  2.a.2 (Continue) save the module assignment and module eigengene information necessary
-#  for subsequent analysis.
-# 
-# =====================================================================================
+#=====================================================================================
+#
+#  Code chunk5.1.2-a5
+#
+#=====================================================================================
 
 
 moduleLabels = net$colors
@@ -327,50 +286,24 @@ geneTree = net$dendrograms[[1]];
 save(MEs, moduleLabels, moduleColors, geneTree, 
      file = "FemaleLiver-02-networkConstruction-auto.RData")
 
-##############################################################################
-# 
-# 
-#  2.b Step-by-step network construction and module detection
-# 
-# 
-##############################################################################
+#=====5.1.2b Step-by-step network construction and module detection======
+#=====================================================================================
+#
+#  Code chunk5.1.2b-1
+#
+#=====================================================================================
 
-
-# =====================================================================================
-# 
-#  0 Preliminaries: setting up the R session
-# 
-# =====================================================================================
-
-
-# Display the current working directory
-getwd();
-# If necessary, change the path below to the directory where the data files are stored. 
-# "." means current directory. On Windows use a forward slash / instead of the usual \.
-if (Sys.info()[['sysname']]=="Darwin"){
-    setwd("/Users/yah2014/Dropbox/Public/Olivier/R/Practics/FemaleLiver-Data");getwd();list.files()}
-if (Sys.info()[['sysname']]=="Windows"){
-    setwd("C:/Users/User/Dropbox/Public/Olivier/R/Practics/FemaleLiver-Data");getwd();list.files()}
-# Load the WGCNA package
-library(WGCNA)
-# The following setting is important, do not omit.
-options(stringsAsFactors = FALSE);
-# Allow multi-threading within WGCNA. At present this call is necessary.
-# Any error here may be ignored but you may want to update WGCNA if you see one.
-# Caution: skip this line if you run RStudio or other third-party R environments.
-# See note above.
-enableWGCNAThreads()
 # Load the data saved in the first part
 lnames = load(file = "FemaleLiver-01-dataInput.RData");
-# The variable lnames contains the names of loaded variables.
+#The variable lnames contains the names of loaded variables.
 lnames
 
 
-# =====================================================================================
-# 
-#  2.b.1 Choosing the soft-thresholding power: analysis of network topology
-# 
-# =====================================================================================
+#=====================================================================================
+#
+#  Code chunk5.1.2b-2
+#
+#=====================================================================================
 
 
 # Choose a set of soft-thresholding powers
@@ -396,36 +329,34 @@ plot(sft$fitIndices[,1], sft$fitIndices[,5],
 text(sft$fitIndices[,1], sft$fitIndices[,5], labels=powers, cex=cex1,col="red")
 
 
-# =====================================================================================
-# 
-#  2.b.2 Co-expression similarity and adjacency
-# 
-# =====================================================================================
+#=====================================================================================
+#
+#  Code chunk5.1.2b-3
+#
+#=====================================================================================
 
 
 softPower = 6;
 adjacency = adjacency(datExpr, power = softPower);
 
 
-# =====================================================================================
-# 
-#  2.b.3 Topological Overlap Matrix (TOM)
-# 
-# =====================================================================================
+#=====================================================================================
+#
+#  Code chunk5.1.2b-4
+#
+#=====================================================================================
 
-# To minimize effects of noise and spurious associations, 
-# we transform the adjacency into Topological Overlap Matrix,
-# and calculate the corresponding dissimilarity:
+
 # Turn adjacency into topological overlap
 TOM = TOMsimilarity(adjacency);
 dissTOM = 1-TOM
 
 
-# =====================================================================================
-# 
-#  2.b.4 Clustering using TOM
-# 
-# =====================================================================================
+#=====================================================================================
+#
+#  Code chunk5.1.2b-5
+#
+#=====================================================================================
 
 
 # Call the hierarchical clustering function
@@ -436,12 +367,11 @@ plot(geneTree, xlab="", sub="", main = "Gene clustering on TOM-based dissimilari
      labels = FALSE, hang = 0.04);
 
 
-# =====================================================================================
-# 
-#  2.b.4 Clustering using TOM
-#  2.b.4 (Continue) Dynamic Tree Cut for branch cutting
-# 
-# =====================================================================================
+#=====================================================================================
+#
+#  Code chunk5.1.2b-6
+#
+#=====================================================================================
 
 
 # We like large modules, so we set the minimum module size relatively high:
@@ -453,12 +383,11 @@ dynamicMods = cutreeDynamic(dendro = geneTree, distM = dissTOM,
 table(dynamicMods)
 
 
-# =====================================================================================
-# 
-#  2.b.4 Clustering using TOM
-#  2.b.4 (Continue) plot the module assignment under the gene dendrogram:
-# 
-# =====================================================================================
+#=====================================================================================
+#
+#  Code chunk5.1.2b-7
+#
+#=====================================================================================
 
 
 # Convert numeric lables into colors
@@ -472,11 +401,11 @@ plotDendroAndColors(geneTree, dynamicColors, "Dynamic Tree Cut",
                     main = "Gene dendrogram and module colors")
 
 
-# =====================================================================================
-# 
-#  2.b.5 Merging of modules whose expression profiles are very similar
-# 
-# =====================================================================================
+#=====================================================================================
+#
+#  Code chunk5.1.2b-8
+#
+#=====================================================================================
 
 
 # Calculate eigengenes
@@ -491,14 +420,12 @@ sizeGrWindow(7, 6)
 plot(METree, main = "Clustering of module eigengenes",
      xlab = "", sub = "")
 
-# We choose a height cut of 0.25, corresponding to correlation of 0.75, to merge
 
-# =====================================================================================
-# 
-#  2.b.5 Merging of modules whose expression profiles are very similar
-#  2.b.5 (Continue) merging of modules
-# 
-# =====================================================================================
+#=====================================================================================
+#
+#  Code chunk5.1.2b-9
+#
+#=====================================================================================
 
 
 MEDissThres = 0.25
@@ -512,29 +439,27 @@ mergedColors = merge$colors;
 mergedMEs = merge$newMEs;
 
 
-# =====================================================================================
-# 
-#  2.b.5 Merging of modules whose expression profiles are very similar
-#  2.b.5 (Continue) dendrogram with the original and merged module colors underneath
-# 
-# =====================================================================================
+#=====================================================================================
+#
+#  Code chunk5.1.2b-10
+#
+#=====================================================================================
 
 
 sizeGrWindow(12, 9)
-# pdf(file = "Plots/geneDendro-3.pdf", wi = 9, he = 6)
+#pdf(file = "Plots/geneDendro-3.pdf", wi = 9, he = 6)
 plotDendroAndColors(geneTree, cbind(dynamicColors, mergedColors),
                     c("Dynamic Tree Cut", "Merged dynamic"),
                     dendroLabels = FALSE, hang = 0.03,
                     addGuide = TRUE, guideHang = 0.05)
-# dev.off()
+#dev.off()
 
 
-# =====================================================================================
-# 
-#  2.b.5 Merging of modules whose expression profiles are very similar
-#  2.b.5 (Continue) We save the relevant variables for use in subsequent parts of the tutorial:
-# 
-# =====================================================================================
+#=====================================================================================
+#
+#  Code chunk5.1.2b-11
+#
+#=====================================================================================
 
 
 # Rename to moduleColors
@@ -546,54 +471,164 @@ MEs = mergedMEs;
 # Save module colors and labels for use in subsequent parts
 save(MEs, moduleLabels, moduleColors, geneTree, file = "FemaleLiver-02-networkConstruction-stepByStep.RData")
 
-##############################################################################
-# 
-# 
-#  3. Relating modules to external information and identifying important
-#  
-# 
-# 
-##############################################################################
+#===5.1.2c Dealing with large datasets: block-wise network construction and module detection====
+
+#=====================================================================================
+#
+#  Code chunk5.1.2c-1
+#
+#=====================================================================================
+
+# Load the data saved in the first part
+lnames = load(file = "FemaleLiver-01-dataInput.RData");
+#The variable lnames contains the names of loaded variables.
+lnames
 
 
-# =====================================================================================
-# 
-#  0 Preliminaries: setting up the R session and loading results of previous parts
-# 
-# =====================================================================================
+#=====================================================================================
+#
+#  Code chunk5.1.2c-2
+#
+#=====================================================================================
 
 
-# Display the current working directory
-getwd();
-# If necessary, change the path below to the directory where the data files are stored. 
-# "." means current directory. On Windows use a forward slash / instead of the usual \.
-if (Sys.info()[['sysname']]=="Darwin"){
-    setwd("/Users/yah2014/Dropbox/Public/Olivier/R/Practics/FemaleLiver-Data");getwd();list.files()}
-if (Sys.info()[['sysname']]=="Windows"){
-    setwd("C:/Users/User/Dropbox/Public/Olivier/R/Practics/FemaleLiver-Data");getwd();list.files()}
-# Load the WGCNA package
-library(WGCNA)
+# Choose a set of soft-thresholding powers
+powers = c(c(1:10), seq(from = 12, to=20, by=2))
+# Call the network topology analysis function
+sft = pickSoftThreshold(datExpr, powerVector = powers, verbose = 5)
+# Plot the results:
+sizeGrWindow(9, 5)
+par(mfrow = c(1,2));
+cex1 = 0.9;
+# Scale-free topology fit index as a function of the soft-thresholding power
+plot(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
+     xlab="Soft Threshold (power)",ylab="Scale Free Topology Model Fit,signed R^2",type="n",
+     main = paste("Scale independence"));
+text(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
+     labels=powers,cex=cex1,col="red");
+# this line corresponds to using an R^2 cut-off of h
+abline(h=0.90,col="red")
+# Mean connectivity as a function of the soft-thresholding power
+plot(sft$fitIndices[,1], sft$fitIndices[,5],
+     xlab="Soft Threshold (power)",ylab="Mean Connectivity", type="n",
+     main = paste("Mean connectivity"))
+text(sft$fitIndices[,1], sft$fitIndices[,5], labels=powers, cex=cex1,col="red")
+
+
+#=====================================================================================
+#
+#  Code chunk5.1.2c-3
+#
+#=====================================================================================
+
+
+bwnet = blockwiseModules(datExpr, maxBlockSize = 2000,
+                         power = 6, TOMType = "unsigned", minModuleSize = 30,
+                         reassignThreshold = 0, mergeCutHeight = 0.25,
+                         numericLabels = TRUE,
+                         saveTOMs = TRUE,
+                         saveTOMFileBase = "femaleMouseTOM-blockwise",
+                         verbose = 3)
+
+
+#=====================================================================================
+#
+#  Code chunk5.1.2c-4
+#
+#=====================================================================================
+
+
+# Load the results of single-block analysis
+load(file = "FemaleLiver-02-networkConstruction-auto.RData");
+# Relabel blockwise modules
+bwLabels = matchLabels(bwnet$colors, moduleLabels);
+# Convert labels to colors for plotting
+bwModuleColors = labels2colors(bwLabels)
+
+
+#=====================================================================================
+#
+#  Code chunk5.1.2c-5
+#
+#=====================================================================================
+
+
+# open a graphics window
+sizeGrWindow(6,6)
+# Plot the dendrogram and the module colors underneath for block 1
+plotDendroAndColors(bwnet$dendrograms[[1]], bwModuleColors[bwnet$blockGenes[[1]]],
+                    "Module colors", main = "Gene dendrogram and module colors in block 1", 
+                    dendroLabels = FALSE, hang = 0.03,
+                    addGuide = TRUE, guideHang = 0.05)
+# Plot the dendrogram and the module colors underneath for block 2
+plotDendroAndColors(bwnet$dendrograms[[2]], bwModuleColors[bwnet$blockGenes[[2]]],
+                    "Module colors", main = "Gene dendrogram and module colors in block 2", 
+                    dendroLabels = FALSE, hang = 0.03,
+                    addGuide = TRUE, guideHang = 0.05)
+
+
+#=====================================================================================
+#
+#  Code chunk5.1.2c-6
+#
+#=====================================================================================
+
+
+sizeGrWindow(12,9)
+plotDendroAndColors(geneTree,
+                    cbind(moduleColors, bwModuleColors),
+                    c("Single block", "2 blocks"),
+                    main = "Single block gene dendrogram and module colors",
+                    dendroLabels = FALSE, hang = 0.03,
+                    addGuide = TRUE, guideHang = 0.05)
+
+
+#=====================================================================================
+#
+#  Code chunk5.1.2c-7
+#
+#=====================================================================================
+
+
+singleBlockMEs = moduleEigengenes(datExpr, moduleColors)$eigengenes;
+blockwiseMEs = moduleEigengenes(datExpr, bwModuleColors)$eigengenes;
+
+
+#=====================================================================================
+#
+#  Code chunk5.1.2c-8
+#
+#=====================================================================================
+
+
+single2blockwise = match(names(singleBlockMEs), names(blockwiseMEs))
+signif(diag(cor(blockwiseMEs[, single2blockwise], singleBlockMEs)), 3)
+
+
+#====5.1.3 Relating modules to external clinical traits and identifying important genes (required)=============================
+#=====================================================================================
+#
+#  Code chunk5.1.3-1
+#
+#=====================================================================================
+
 # The following setting is important, do not omit.
 options(stringsAsFactors = FALSE);
 # Load the expression and trait data saved in the first part
 lnames = load(file = "FemaleLiver-01-dataInput.RData");
-# The variable lnames contains the names of loaded variables.
+#The variable lnames contains the names of loaded variables.
 lnames
 # Load network data saved in the second part.
 lnames = load(file = "FemaleLiver-02-networkConstruction-auto.RData");
 lnames
 
 
-# =====================================================================================
-# 
-#  3.a Quantifying module-trait associations
-# 
-# =====================================================================================
-# In this analysis we would like to identify modules 
-# that are significantly associated with the measured clinical traits.
+#=====================================================================================
+#
+#  Code chunk5.1.3-2
+#
+#=====================================================================================
 
-# we simply correlate eigengenes with external
-# traits and look for the most significant associations:
 
 # Define numbers of genes and samples
 nGenes = ncol(datExpr);
@@ -605,12 +640,11 @@ moduleTraitCor = cor(MEs, datTraits, use = "p");
 moduleTraitPvalue = corPvalueStudent(moduleTraitCor, nSamples);
 
 
-# =====================================================================================
-# 
-#  3.a Quantifying module-trait associations
-#  (Continue) color code each association by the correlation value
-# 
-# =====================================================================================
+#=====================================================================================
+#
+#  Code chunk5.1.3-3
+#
+#=====================================================================================
 
 
 sizeGrWindow(10,6)
@@ -633,12 +667,11 @@ labeledHeatmap(Matrix = moduleTraitCor,
                main = paste("Module-trait relationships"))
 
 
-# =====================================================================================
-# 
-#  3.b Gene relationship to trait and important modules: 
-#  Gene Significance and Module Membership
-# 
-# =====================================================================================
+#=====================================================================================
+#
+#  Code chunk5.1.3-4
+#
+#=====================================================================================
 
 
 # Define variable weight containing the weight column of datTrait
@@ -660,14 +693,11 @@ names(geneTraitSignificance) = paste("GS.", names(weight), sep="");
 names(GSPvalue) = paste("p.GS.", names(weight), sep="");
 
 
-# =====================================================================================
-# 
-#  3.c Intramodular analysis: identifying genes with high GS and MM
-# 
-# =====================================================================================
-# Using the GS and MM measures, we can identify genes 
-# that have a high significance for weight as well as high module
-# membership in interesting modules.
+#=====================================================================================
+#
+#  Code chunk5.1.3-5
+#
+#=====================================================================================
 
 
 module = "brown"
@@ -684,38 +714,32 @@ verboseScatterplot(abs(geneModuleMembership[moduleGenes, column]),
                    cex.main = 1.2, cex.lab = 1.2, cex.axis = 1.2, col = module)
 
 
-# =====================================================================================
-# 
-#  3.d Summary output of network analysis results
-# 
-# =====================================================================================
+#=====================================================================================
+#
+#  Code chunk5.1.3-6
+#
+#=====================================================================================
 
-# Our expression data are only annotated by probe ID names:
-# the command will return all probe IDs included in the analysis.
+
 names(datExpr)
 
 
-# =====================================================================================
-# 
-#  3.d Summary output of network analysis results
-#  3.d (Continue) Return probe IDs belonging to the brown module.
-# 
-# =====================================================================================
+#=====================================================================================
+#
+#  Code chunk5.1.3-7
+#
+#=====================================================================================
 
 
 names(datExpr)[moduleColors=="brown"]
 
 
-# =====================================================================================
-# 
-#  3.d Summary output of network analysis results
-#  3.d (Continue) interpretation of the results
-# 
-# =====================================================================================
-# To facilitate interpretation of the results, we use a probe
-# annotation file provided by the manufacturer of the expression arrays
-# to connect probe IDs to gene names and
-# universally recognized identification numbers (Entrez codes).
+#=====================================================================================
+#
+#  Code chunk5.1.3-8
+#
+#=====================================================================================
+
 
 annot = read.csv(file = "GeneAnnotation.csv");
 dim(annot)
@@ -727,14 +751,11 @@ sum(is.na(probes2annot))
 # Should return 0.
 
 
-# =====================================================================================
-# 
-#  3.d Summary output of network analysis results
-#  3.d (Continue) create a data frame holding informations
-# 
-# =====================================================================================
-
-# We now create a data frame holding the following information for all probes
+#=====================================================================================
+#
+#  Code chunk5.1.3-9
+#
+#=====================================================================================
 
 
 # Create the starting data frame
@@ -760,50 +781,23 @@ geneOrder = order(geneInfo0$moduleColor, -abs(geneInfo0$GS.weight));
 geneInfo = geneInfo0[geneOrder, ]
 
 
-# =====================================================================================
-# 
-#  3.d Summary output of network analysis results
-#  3.d (Continue) This data frame can be written into a text-format spreadsheet,
-# 
-# =====================================================================================
+#=====================================================================================
+#
+#  Code chunk5.1.3-10
+#
+#=====================================================================================
 
 
 write.csv(geneInfo, file = "geneInfo.csv")
-fix(geneInfo)
-##############################################################################
-# 
-# 
-#  4. Interfacing network analysis with other data such as functional
-#  annotation and gene ontology  
-# 
-# 
-##############################################################################
 
-
-# =====================================================================================
-# 
-#  0 Preliminaries: setting up the R session and loading results of previous parts
-# 
-# =====================================================================================
-
+#====5.1.4 Interfacing network analysis with other data such as functional annotation and gene ontology  (required)=============================
 
 #=====================================================================================
 #
-#  0 Preliminaries: setting up the R session
+#  Code chunk5.1.4-1
 #
 #=====================================================================================
 
-
-# Display the current working directory
-getwd();
-# If necessary, change the path below to the directory where the data files are stored. 
-# "." means current directory. On Windows use a forward slash / instead of the usual \.
-if (Sys.info()[['sysname']]=="Darwin"){
-    setwd("/Users/yah2014/Dropbox/Public/Olivier/R/Practics/FemaleLiver-Data");getwd();list.files()}
-if (Sys.info()[['sysname']]=="Windows"){
-    setwd("C:/Users/User/Dropbox/Public/Olivier/R/Practics/FemaleLiver-Data");getwd();list.files()}
-# Load the WGCNA package
-library(WGCNA)
 # The following setting is important, do not omit.
 options(stringsAsFactors = FALSE);
 # Load the expression and trait data saved in the first part
@@ -817,7 +811,7 @@ lnames
 
 #=====================================================================================
 #
-#  4.a Output gene lists for use with online software and services
+#  Code chunk5.1.4-2
 #
 #=====================================================================================
 
@@ -850,34 +844,47 @@ write.table(as.data.frame(allLLIDs), file = fileName,
 
 #=====================================================================================
 #
-#  4.b Enrichment analysis directly within R
+#  Code chunk5.1.4-3
 #
 #=====================================================================================
-#The function takes a vector of module labels,
-#and the Entrez (a.k.a. Locus Link) codes for the genes
-#whose labels are given.
 
+#GOenrichmentAnalysis takes long time
 GOenr = GOenrichmentAnalysis(moduleColors, allLLIDs, organism = "mouse", nBestP = 10);
 
-#The function runs for awhile and returns a long list,
-#the most interesting component of which is
+
+#=====================================================================================
+#
+#  Code chunk5.1.4-4
+#
+#=====================================================================================
+
 
 tab = GOenr$bestPTerms[[4]]$enrichment
-#This is an enrichment table containing
-#the 10 best terms for each module present in moduleColors.
 
-#Names of thecolumns within the table can be accessed by
+
+#=====================================================================================
+#
+#  Code chunk5.1.4-5
+#
+#=====================================================================================
+
+
 names(tab)
 
-#it is best to save the table into a file 
-#and open it using their favorite tool
+
+#=====================================================================================
+#
+#  Code chunk5.1.4-6
+#
+#=====================================================================================
+
+
 write.table(tab, file = "GOEnrichmentTable.csv", sep = ",", quote = TRUE, row.names = FALSE)
 
 
 #=====================================================================================
 #
-#  4.b Enrichment analysis directly within R
-#  display above result directly on screen
+#  Code chunk5.1.4-7
 #
 #=====================================================================================
 
@@ -897,32 +904,14 @@ options(width=95)
 # Finally, display the enrichment table:
 screenTab
 
-##############################################################################
-# 
-# 
-#  5. Network visualization using WGCNA functions
-# 
-# 
-##############################################################################
+#===5.1.5 Network visualization using WGCNA functions===========
+
 
 #=====================================================================================
 #
-#  0 Preliminaries: setting up the R session and loading results of previous parts
+#  Code chunk5.1.5-1
 #
 #=====================================================================================
-
-
-# Display the current working directory
-getwd();
-# If necessary, change the path below to the directory where the data files are stored. 
-# "." means current directory. On Windows use a forward slash / instead of the usual \.
-if (Sys.info()[['sysname']]=="Darwin"){
-    setwd("/Users/yah2014/Dropbox/Public/Olivier/R/Practics/FemaleLiver-Data");getwd();list.files()}
-if (Sys.info()[['sysname']]=="Windows"){
-    setwd("C:/Users/User/Dropbox/Public/Olivier/R/Practics/FemaleLiver-Data");getwd();list.files()}
-
-# Load the WGCNA package
-library(WGCNA)
 # The following setting is important, do not omit.
 options(stringsAsFactors = FALSE);
 # Load the expression and trait data saved in the first part
@@ -938,30 +927,28 @@ nSamples = nrow(datExpr)
 
 #=====================================================================================
 #
-#  5 Visualization of networks within R
-#  5.a Visualizing the gene network by heatmap
+#  Code chunk5.1.5-2
 #
 #=====================================================================================
 
-#This code can be executed only if the network
-#was calculated using a single-block approach
 
 # Calculate topological overlap anew: this could be done more efficiently by saving the TOM
 # calculated during module detection, but let us do it again here.
-dissTOM = 1-TOMsimilarityFromExpr(datExpr, power = 6); # it takes some time
+dissTOM = 1-TOMsimilarityFromExpr(datExpr, power = 6);
 # Transform dissTOM with a power to make moderately strong connections more visible in the heatmap
 plotTOM = dissTOM^7;
 # Set diagonal to NA for a nicer plot
 diag(plotTOM) = NA;
+
 # Call the plot function
 sizeGrWindow(9,9)
-TOMplot(plotTOM, geneTree, moduleColors, main = "Network heatmap plot, all genes")
-#this may stuck
+TOMplot(plotTOM, geneTree, moduleColors, main = "Network heatmap plot, all genes") #takes long time
+# WARNING: On some computers, this code can take a while to run (20 minutes??). 
+# I suggest you skip it.
 
 #=====================================================================================
 #
-#  5.a Visualizing the gene network by heatmap
-#  with less gene=400
+#  Code chunk5.1.5-3
 #
 #=====================================================================================
 
@@ -985,7 +972,7 @@ TOMplot(plotDiss, selectTree, selectColors, main = "Network heatmap plot, select
 
 #=====================================================================================
 #
-#  5.b Visualizing the network of eigengenes
+#  Code chunk5.1.5-4
 #
 #=====================================================================================
 
@@ -1006,8 +993,7 @@ plotEigengeneNetworks(MET, "", marDendro = c(0,4,1,2), marHeatmap = c(3,4,1,2), 
 
 #=====================================================================================
 #
-#  5.b Visualizing the network of eigengenes
-#  To split the dendrogram and heatmap plots
+#  Code chunk5.1.5-5
 #
 #=====================================================================================
 
@@ -1022,32 +1008,15 @@ par(cex = 1.0)
 plotEigengeneNetworks(MET, "Eigengene adjacency heatmap", marHeatmap = c(3,4,2,2),
                       plotDendrograms = FALSE, xLabelsAngle = 90)
 
-##############################################################################
-# 
-# 
-#  6. Exporting a gene network to external visualization software
-# 
-# 
-##############################################################################
+
+#===5.1.6 Export of networks to external software=============
 
 #=====================================================================================
 #
-#  0 Preliminaries: setting up the R session and loading results of previous parts
+#  Code chunk5.1.6-1
 #
 #=====================================================================================
 
-
-# Display the current working directory
-getwd();
-# If necessary, change the path below to the directory where the data files are stored. 
-# "." means current directory. On Windows use a forward slash / instead of the usual \.
-if (Sys.info()[['sysname']]=="Darwin"){
-    setwd("/Users/yah2014/Dropbox/Public/Olivier/R/Practics/FemaleLiver-Data");getwd();list.files()}
-if (Sys.info()[['sysname']]=="Windows"){
-    setwd("C:/Users/User/Dropbox/Public/Olivier/R/Practics/FemaleLiver-Data");getwd();list.files()}
-
-# Load the WGCNA package
-library(WGCNA)
 # The following setting is important, do not omit.
 options(stringsAsFactors = FALSE);
 # Load the expression and trait data saved in the first part
@@ -1061,14 +1030,13 @@ lnames
 
 #=====================================================================================
 #
-#  6 Exporting network data to network visualization software
-#  6.a Exporting to VisANT
+#  Code chunk5.1.6-2
 #
 #=====================================================================================
 
 
 # Recalculate topological overlap
-TOM = TOMsimilarityFromExpr(datExpr, power = 6);#It takes some time.
+TOM = TOMsimilarityFromExpr(datExpr, power = 6);
 # Read in the annotation file
 annot = read.csv(file = "GeneAnnotation.csv");
 # Select module
@@ -1090,8 +1058,7 @@ vis = exportNetworkToVisANT(modTOM,
 
 #=====================================================================================
 #
-#  6.a Exporting to VisANT
-#  restrict the genes in the output to say the 30 top hub genes in the module:
+#  Code chunk5.1.6-3
 #
 #=====================================================================================
 
@@ -1104,18 +1071,17 @@ vis = exportNetworkToVisANT(modTOM[top, top],
                             weighted = TRUE,
                             threshold = 0,
                             probeToGene = data.frame(annot$substanceBXH, annot$gene_symbol) )
-#To provide an example of a VisANT visualization, 
-#we loaded the file produced by the above code in VisANT.
+
 
 #=====================================================================================
 #
-#  6.b Exporting to Cytoscape
+#  Code chunk5.1.6-4
 #
 #=====================================================================================
 
 
 # Recalculate topological overlap if needed
-TOM = TOMsimilarityFromExpr(datExpr, power = 6); #It takes some time.
+TOM = TOMsimilarityFromExpr(datExpr, power = 6);
 # Read in the annotation file
 annot = read.csv(file = "GeneAnnotation.csv");
 # Select modules
@@ -1138,5 +1104,2461 @@ cyt = exportNetworkToCytoscape(modTOM,
                                altNodeNames = modGenes,
                                nodeAttr = moduleColors[inModule])
 
+########################################################################################
+#
+# 5.2 Consensus analysis of female and male liver expression data
+#  https://labs.genetics.ucla.edu/horvath/htdocs/CoexpressionNetwork/Rpackages/WGCNA/Tutorials/
+#
+########################################################################################
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.1-1
+#
+#=====================================================================================
+# Load the package
+
+# The following setting is important, do not omit.
+options(stringsAsFactors = FALSE);
+#Read in the female liver data set
+femData = read.csv("LiverFemale3600.csv");
+# Read in the male liver data set
+maleData = read.csv("LiverMale3600.csv");
+# Take a quick look at what is in the data sets (caution, longish output):
+dim(femData)
+names(femData)
+dim(maleData)
+names(maleData)
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.1-2
+#
+#=====================================================================================
+
+
+# We work with two sets:
+nSets = 2;
+# For easier labeling of plots, create a vector holding descriptive names of the two sets.
+setLabels = c("Female liver", "Male liver")
+shortLabels = c("Female", "Male")
+# Form multi-set expression data: columns starting from 9 contain actual expression data.
+multiExpr = vector(mode = "list", length = nSets)
+
+multiExpr[[1]] = list(data = as.data.frame(t(femData[-c(1:8)])));
+names(multiExpr[[1]]$data) = femData$substanceBXH;
+rownames(multiExpr[[1]]$data) = names(femData)[-c(1:8)];
+multiExpr[[2]] = list(data = as.data.frame(t(maleData[-c(1:8)])));
+names(multiExpr[[2]]$data) = maleData$substanceBXH;
+rownames(multiExpr[[2]]$data) = names(maleData)[-c(1:8)];
+# Check that the data has the correct format for many functions operating on multiple sets:
+exprSize = checkSets(multiExpr)
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.1-3
+#
+#=====================================================================================
+
+
+# Check that all genes and samples have sufficiently low numbers of missing values.
+gsg = goodSamplesGenesMS(multiExpr, verbose = 3);
+gsg$allOK
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.1-4
+#
+#=====================================================================================
+
+
+if (!gsg$allOK)
+{
+    # Print information about the removed genes:
+    if (sum(!gsg$goodGenes) > 0)
+        printFlush(paste("Removing genes:", paste(names(multiExpr[[1]]$data)[!gsg$goodGenes], 
+                                                  collapse = ", ")))
+    for (set in 1:exprSize$nSets)
+    {
+        if (sum(!gsg$goodSamples[[set]]))
+            printFlush(paste("In set", setLabels[set], "removing samples",
+                             paste(rownames(multiExpr[[set]]$data)[!gsg$goodSamples[[set]]], collapse = ", ")))
+        # Remove the offending genes and samples
+        multiExpr[[set]]$data = multiExpr[[set]]$data[gsg$goodSamples[[set]], gsg$goodGenes];
+    }
+    # Update exprSize
+    exprSize = checkSets(multiExpr)
+}
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.1-5
+#
+#=====================================================================================
+
+
+sampleTrees = list()
+for (set in 1:nSets)
+{
+    sampleTrees[[set]] = hclust(dist(multiExpr[[set]]$data), method = "average")
+}
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.1-6
+#
+#=====================================================================================
+
+
+#skip pdf(file = "Plots/SampleClustering.pdf", width = 12, height = 12);
+par(mfrow=c(2,1))
+par(mar = c(0, 4, 2, 0))
+for (set in 1:nSets)
+    plot(sampleTrees[[set]], main = paste("Sample clustering on all genes in", setLabels[set]),
+         xlab="", sub="", cex = 0.7);
+#skip dev.off();
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.1-7
+#
+#=====================================================================================
+
+
+# Choose the "base" cut height for the female data set
+baseHeight = 16
+# Adjust the cut height for the male data set for the number of samples
+cutHeights = c(16, 16*exprSize$nSamples[2]/exprSize$nSamples[1]);
+# Re-plot the dendrograms including the cut lines
+#skip pdf(file = "Plots/SampleClustering.pdf", width = 12, height = 12);
+par(mfrow=c(2,1))
+par(mar = c(0, 4, 2, 0))
+for (set in 1:nSets)
+{
+    plot(sampleTrees[[set]], main = paste("Sample clustering on all genes in", setLabels[set]),
+         xlab="", sub="", cex = 0.7);
+    abline(h=cutHeights[set], col = "red");
+}
+#skip dev.off();
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.1-8
+#
+#=====================================================================================
+
+
+for (set in 1:nSets)
+{
+    # Find clusters cut by the line
+    labels = cutreeStatic(sampleTrees[[set]], cutHeight = cutHeights[set])
+    # Keep the largest one (labeled by the number 1)
+    keep = (labels==1)
+    multiExpr[[set]]$data = multiExpr[[set]]$data[keep, ]
+}
+collectGarbage();
+# Check the size of the leftover data
+exprSize = checkSets(multiExpr)
+exprSize
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.1-9
+#
+#=====================================================================================
+
+
+traitData = read.csv("ClinicalTraits.csv");
+dim(traitData)
+names(traitData)
+# remove columns that hold information we do not need.
+allTraits = traitData[, -c(31, 16)];
+allTraits = allTraits[, c(2, 11:36) ];
+# See how big the traits are and what are the trait and sample names
+dim(allTraits)
+names(allTraits)
+allTraits$Mice
+# Form a multi-set structure that will hold the clinical traits.
+Traits = vector(mode="list", length = nSets);
+for (set in 1:nSets)
+{
+    setSamples = rownames(multiExpr[[set]]$data);
+    traitRows = match(setSamples, allTraits$Mice);
+    Traits[[set]] = list(data = allTraits[traitRows, -1]);
+    rownames(Traits[[set]]$data) = allTraits[traitRows, 1];
+}
+collectGarbage();
+# Define data set dimensions
+nGenes = exprSize$nGenes;
+nSamples = exprSize$nSamples;
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.1-10
+#
+#=====================================================================================
+
+
+save(multiExpr, Traits, nGenes, nSamples, setLabels, shortLabels, exprSize, 
+     file = "Consensus-dataInput.RData");
+
+#5.2.2 Network construction and consensus module detection============
+# a.Automatic, one-step network construction and consensus module detection:
+#=====================================================================================
+#
+#  Code chunk5.2.2a-1
+#
+#=====================================================================================
+
+# The following setting is important, do not omit.
+options(stringsAsFactors = FALSE);
+# Allow multi-threading within WGCNA. 
+# Caution: skip this line if you run RStudio or other third-party R environments.
+# See note above.
+# enableWGCNAThreads()
+# Load the data saved in the first part
+lnames = load(file = "Consensus-dataInput.RData");
+# The variable lnames contains the names of loaded variables.
+lnames
+# Get the number of sets in the multiExpr structure.
+nSets = checkSets(multiExpr)$nSets
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.2a-2
+#
+#=====================================================================================
+
+
+# Choose a set of soft-thresholding powers
+powers = c(seq(4,10,by=1), seq(12,20, by=2));
+# Initialize a list to hold the results of scale-free analysis
+powerTables = vector(mode = "list", length = nSets);
+# Call the network topology analysis function for each set in turn
+for (set in 1:nSets)
+    powerTables[[set]] = list(data = pickSoftThreshold(multiExpr[[set]]$data, powerVector=powers,
+                                                       verbose = 2)[[2]]);
+collectGarbage();
+# Plot the results:
+colors = c("black", "red")
+# Will plot these columns of the returned scale free analysis tables
+plotCols = c(2,5,6,7)
+colNames = c("Scale Free Topology Model Fit", "Mean connectivity", "Median connectivity",
+             "Max connectivity");
+# Get the minima and maxima of the plotted points
+ylim = matrix(NA, nrow = 2, ncol = 4);
+for (set in 1:nSets)
+{
+    for (col in 1:length(plotCols))
+    {
+        ylim[1, col] = min(ylim[1, col], powerTables[[set]]$data[, plotCols[col]], na.rm = TRUE);
+        ylim[2, col] = max(ylim[2, col], powerTables[[set]]$data[, plotCols[col]], na.rm = TRUE);
+    }
+}
+# Plot the quantities in the chosen columns vs. the soft thresholding power
+sizeGrWindow(8, 6)
+pdf(file = "Plots/scaleFreeAnalysis.pdf", wi = 8, he = 6)
+par(mfcol = c(2,2));
+par(mar = c(4.2, 4.2 , 2.2, 0.5))
+cex1 = 0.7;
+for (col in 1:length(plotCols)) for (set in 1:nSets)
+{
+    if (set==1)
+    {
+        plot(powerTables[[set]]$data[,1], -sign(powerTables[[set]]$data[,3])*powerTables[[set]]$data[,2],
+             xlab="Soft Threshold (power)",ylab=colNames[col],type="n", ylim = ylim[, col],
+             main = colNames[col]);
+        addGrid();
+    }
+    if (col==1)
+    {
+        text(powerTables[[set]]$data[,1], -sign(powerTables[[set]]$data[,3])*powerTables[[set]]$data[,2],
+             labels=powers,cex=cex1,col=colors[set]);
+    } else
+        text(powerTables[[set]]$data[,1], powerTables[[set]]$data[,plotCols[col]],
+             labels=powers,cex=cex1,col=colors[set]);
+    if (col==1)
+    {
+        legend("bottomright", legend = setLabels, col = colors, pch = 20) ;
+    } else
+        legend("topright", legend = setLabels, col = colors, pch = 20) ;
+}
+dev.off();
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.2a-3
+#
+#=====================================================================================
+
+
+net = blockwiseConsensusModules(
+    multiExpr, power = 6, minModuleSize = 30, deepSplit = 2,
+    pamRespectsDendro = FALSE, 
+    mergeCutHeight = 0.25, numericLabels = TRUE,
+    minKMEtoStay = 0,
+    saveTOMs = TRUE, verbose = 5)
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.2a-4
+#
+#=====================================================================================
+
+
+consMEs = net$multiMEs;
+moduleLabels = net$colors;
+# Convert the numeric labels to color labels
+moduleColors = labels2colors(moduleLabels)
+consTree = net$dendrograms[[1]]; 
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.2a-5
+#
+#=====================================================================================
+
+
+sizeGrWindow(8,6);
+pdf(file = "Plots/ConsensusDendrogram-auto.pdf", wi = 8, he = 6)
+plotDendroAndColors(consTree, moduleColors,
+                    "Module colors",
+                    dendroLabels = FALSE, hang = 0.03,
+                    addGuide = TRUE, guideHang = 0.05,
+                    main = "Consensus gene dendrogram and module colors")
+
+dev.off()
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.2a-6
+#
+#=====================================================================================
+
+
+save(consMEs, moduleLabels, moduleColors, consTree, file = "Consensus-NetworkConstruction-auto.RData")
+
+
+#5.2.2b Step-by-step network construction and module detection, including scaling of Topological Overlap Matrices
+
+#=====================================================================================
+#
+#  Code chunk5.2.2b-1
+#
+#=====================================================================================
+# The following setting is important, do not omit.
+options(stringsAsFactors = FALSE);
+# Allow multi-threading within WGCNA. 
+# Caution: skip this line if you run RStudio or other third-party R environments.
+# See note above.
+
+# Load the data saved in the first part
+lnames = load(file = "Consensus-dataInput.RData");
+#The variable lnames contains the names of loaded variables.
+lnames
+# Get the number of sets in the multiExpr structure.
+nSets = checkSets(multiExpr)$nSets
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.2b-2
+#
+#=====================================================================================
+
+
+# Choose a set of soft-thresholding powers
+powers = c(seq(4,10,by=1), seq(12,20, by=2));
+# Initialize a list to hold the results of scale-free analysis
+powerTables = vector(mode = "list", length = nSets);
+# Call the network topology analysis function for each set in turn
+for (set in 1:nSets)
+    powerTables[[set]] = list(data = pickSoftThreshold(multiExpr[[set]]$data, powerVector=powers,
+                                                       verbose = 2)[[2]]);
+collectGarbage();
+# Plot the results:
+colors = c("black", "red")
+# Will plot these columns of the returned scale free analysis tables
+plotCols = c(2,5,6,7)
+colNames = c("Scale Free Topology Model Fit", "Mean connectivity", "Median connectivity",
+             "Max connectivity");
+# Get the minima and maxima of the plotted points
+ylim = matrix(NA, nrow = 2, ncol = 4);
+for (set in 1:nSets)
+{
+    for (col in 1:length(plotCols))
+    {
+        ylim[1, col] = min(ylim[1, col], powerTables[[set]]$data[, plotCols[col]], na.rm = TRUE);
+        ylim[2, col] = max(ylim[2, col], powerTables[[set]]$data[, plotCols[col]], na.rm = TRUE);
+    }
+}
+# Plot the quantities in the chosen columns vs. the soft thresholding power
+sizeGrWindow(8, 6)
+par(mfcol = c(2,2));
+par(mar = c(4.2, 4.2 , 2.2, 0.5))
+cex1 = 0.7;
+for (col in 1:length(plotCols)) for (set in 1:nSets)
+{
+    if (set==1)
+    {
+        plot(powerTables[[set]]$data[,1], -sign(powerTables[[set]]$data[,3])*powerTables[[set]]$data[,2],
+             xlab="Soft Threshold (power)",ylab=colNames[col],type="n", ylim = ylim[, col],
+             main = colNames[col]);
+        addGrid();
+    }
+    if (col==1)
+    {
+        text(powerTables[[set]]$data[,1], -sign(powerTables[[set]]$data[,3])*powerTables[[set]]$data[,2],
+             labels=powers,cex=cex1,col=colors[set]);
+    } else
+        text(powerTables[[set]]$data[,1], powerTables[[set]]$data[,plotCols[col]],
+             labels=powers,cex=cex1,col=colors[set]);
+    if (col==1)
+    {
+        legend("bottomright", legend = setLabels, col = colors, pch = 20) ;
+    } else
+        legend("topright", legend = setLabels, col = colors, pch = 20) ;
+}
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.2b-3
+#
+#=====================================================================================
+
+
+softPower = 6;
+# Initialize an appropriate array to hold the adjacencies
+adjacencies = array(0, dim = c(nSets, nGenes, nGenes));
+# Calculate adjacencies in each individual data set
+for (set in 1:nSets)
+    adjacencies[set, , ] = abs(cor(multiExpr[[set]]$data, use = "p"))^softPower;
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.2b-4
+#
+#=====================================================================================
+
+
+# Initialize an appropriate array to hold the TOMs
+TOM = array(0, dim = c(nSets, nGenes, nGenes));
+# Calculate TOMs in each individual data set
+for (set in 1:nSets)
+    TOM[set, , ] = TOMsimilarity(adjacencies[set, , ]);
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.2b-5
+#
+#=====================================================================================
+
+
+# Define the reference percentile
+scaleP = 0.95
+# Set RNG seed for reproducibility of sampling
+set.seed(12345)
+# Sample sufficiently large number of TOM entries
+nSamples = as.integer(1/(1-scaleP) * 1000);
+# Choose the sampled TOM entries
+scaleSample = sample(nGenes*(nGenes-1)/2, size = nSamples)
+TOMScalingSamples = list();
+# These are TOM values at reference percentile
+scaleQuant = rep(1, nSets)
+# Scaling powers to equalize reference TOM values
+scalePowers = rep(1, nSets)
+# Loop over sets
+for (set in 1:nSets)
+{
+    # Select the sampled TOM entries
+    TOMScalingSamples[[set]] = as.dist(TOM[set, , ])[scaleSample]
+    # Calculate the 95th percentile
+    scaleQuant[set] = quantile(TOMScalingSamples[[set]],
+                               probs = scaleP, type = 8);
+    # Scale the male TOM
+    if (set>1)
+    {
+        scalePowers[set] = log(scaleQuant[1])/log(scaleQuant[set]);
+        TOM[set, ,] = TOM[set, ,]^scalePowers[set];
+    }
+}
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.2b-6
+#
+#=====================================================================================
+
+
+# For plotting, also scale the sampled TOM entries
+scaledTOMSamples = list();
+for (set in 1:nSets)
+    scaledTOMSamples[[set]] = TOMScalingSamples[[set]]^scalePowers[set]
+# Open a suitably sized graphics window
+sizeGrWindow(6,6)
+#skip pdf(file = "Plots/TOMScaling-QQPlot.pdf", wi = 6, he = 6);
+# qq plot of the unscaled samples
+qqUnscaled = qqplot(TOMScalingSamples[[1]], TOMScalingSamples[[2]], plot.it = TRUE, cex = 0.6,
+                    xlab = paste("TOM in", setLabels[1]), ylab = paste("TOM in", setLabels[2]),
+                    main = "Q-Q plot of TOM", pch = 20)
+# qq plot of the scaled samples
+qqScaled = qqplot(scaledTOMSamples[[1]], scaledTOMSamples[[2]], plot.it = FALSE)
+points(qqScaled$x, qqScaled$y, col = "red", cex = 0.6, pch = 20);
+abline(a=0, b=1, col = "blue")
+legend("topleft", legend = c("Unscaled TOM", "Scaled TOM"), pch = 20, col = c("black", "red"))
+dev.off();
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.2b-7
+#
+#=====================================================================================
+
+
+consensusTOM = pmin(TOM[1, , ], TOM[2, , ]);
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.2b-8
+#
+#=====================================================================================
+
+
+# Clustering
+consTree = hclust(as.dist(1-consensusTOM), method = "average");
+# We like large modules, so we set the minimum module size relatively high:
+minModuleSize = 30;
+# Module identification using dynamic tree cut:
+unmergedLabels = cutreeDynamic(dendro = consTree, distM = 1-consensusTOM,
+                               deepSplit = 2, cutHeight = 0.995,
+                               minClusterSize = minModuleSize,
+                               pamRespectsDendro = FALSE );
+unmergedColors = labels2colors(unmergedLabels)
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.2b-9
+#
+#=====================================================================================
+
+
+sizeGrWindow(8,6)
+plotDendroAndColors(consTree, unmergedColors, "Dynamic Tree Cut",
+                    dendroLabels = FALSE, hang = 0.03,
+                    addGuide = TRUE, guideHang = 0.05)
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.2b-10
+#
+#=====================================================================================
+
+
+# Calculate module eigengenes
+unmergedMEs = multiSetMEs(multiExpr, colors = NULL, universalColors = unmergedColors)
+# Calculate consensus dissimilarity of consensus module eigengenes
+consMEDiss = consensusMEDissimilarity(unmergedMEs);
+# Cluster consensus modules
+consMETree = hclust(as.dist(consMEDiss), method = "average");
+# Plot the result
+sizeGrWindow(7,6)
+par(mfrow = c(1,1))
+plot(consMETree, main = "Consensus clustering of consensus module eigengenes",
+     xlab = "", sub = "")
+abline(h=0.25, col = "red")
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.2b-11
+#
+#=====================================================================================
+
+
+merge = mergeCloseModules(multiExpr, unmergedLabels, cutHeight = 0.25, verbose = 3)
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.2b-12
+#
+#=====================================================================================
+
+
+# Numeric module labels
+moduleLabels = merge$colors;
+# Convert labels to colors
+moduleColors = labels2colors(moduleLabels)
+# Eigengenes of the new merged modules:
+consMEs = merge$newMEs;
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.2b-13
+#
+#=====================================================================================
+
+
+sizeGrWindow(9,6)
+plotDendroAndColors(consTree, cbind(unmergedColors, moduleColors),
+                    c("Unmerged", "Merged"),
+                    dendroLabels = FALSE, hang = 0.03,
+                    addGuide = TRUE, guideHang = 0.05)
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.2b-14
+#
+#=====================================================================================
+
+
+save(consMEs, moduleColors, moduleLabels, consTree, file = "Consensus-NetworkConstruction-man.RData")
+
+
+#5.2.2c Dealing with large datasets: block-wise network construction and consensus module detection, including comparing the block-wise approach to the standard single-block method
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.2c-1
+#
+#=====================================================================================
+
+# The following setting is important, do not omit.
+options(stringsAsFactors = FALSE);
+# Allow multi-threading within WGCNA. 
+# Caution: skip this line if you run RStudio or other third-party R environments.
+# See note above.
+
+# Load the data saved in the first part
+lnames = load(file = "Consensus-dataInput.RData");
+# The variable lnames contains the names of loaded variables.
+lnames
+# Get the number of sets in the multiExpr structure.
+nSets = checkSets(multiExpr)$nSets
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.2c-2
+#
+#=====================================================================================
+
+
+# Choose a set of soft-thresholding powers
+powers = c(seq(4,10,by=1), seq(12,20, by=2));
+# Initialize a list to hold the results of scale-free analysis
+powerTables = vector(mode = "list", length = nSets);
+# Call the network topology analysis function for each set in turn
+for (set in 1:nSets)
+    powerTables[[set]] = list(data = pickSoftThreshold(multiExpr[[set]]$data, powerVector=powers,
+                                                       verbose = 2)[[2]]);
+collectGarbage();
+# Plot the results:
+colors = c("black", "red")
+# Will plot these columns of the returned scale free analysis tables
+plotCols = c(2,5,6,7)
+colNames = c("Scale Free Topology Model Fit", "Mean connectivity", "Median connectivity",
+             "Max connectivity");
+# Get the minima and maxima of the plotted points
+ylim = matrix(NA, nrow = 2, ncol = 4);
+for (set in 1:nSets)
+{
+    for (col in 1:length(plotCols))
+    {
+        ylim[1, col] = min(ylim[1, col], powerTables[[set]]$data[, plotCols[col]], na.rm = TRUE);
+        ylim[2, col] = max(ylim[2, col], powerTables[[set]]$data[, plotCols[col]], na.rm = TRUE);
+    }
+}
+# Plot the quantities in the chosen columns vs. the soft thresholding power
+sizeGrWindow(8, 6)
+#pdf(file = "Plots/scaleFreeAnalysis.pdf", wi = 8, he = 6);
+par(mfcol = c(2,2));
+par(mar = c(4.2, 4.2 , 2.2, 0.5))
+cex1 = 0.7;
+for (col in 1:length(plotCols)) for (set in 1:nSets)
+{
+    if (set==1)
+    {
+        plot(powerTables[[set]]$data[,1], -sign(powerTables[[set]]$data[,3])*powerTables[[set]]$data[,2],
+             xlab="Soft Threshold (power)",ylab=colNames[col],type="n", ylim = ylim[, col],
+             main = colNames[col]);
+        addGrid();
+    }
+    if (col==1)
+    {
+        text(powerTables[[set]]$data[,1], -sign(powerTables[[set]]$data[,3])*powerTables[[set]]$data[,2],
+             labels=powers,cex=cex1,col=colors[set]);
+    } else
+        text(powerTables[[set]]$data[,1], powerTables[[set]]$data[,plotCols[col]],
+             labels=powers,cex=cex1,col=colors[set]);
+    if (col==1)
+    {
+        legend("bottomright", legend = setLabels, col = colors, pch = 20) ;
+    } else
+        legend("topright", legend = setLabels, col = colors, pch = 20) ;
+}
+dev.off();
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.2c-3
+#
+#=====================================================================================
+
+
+bnet = blockwiseConsensusModules(
+    multiExpr, maxBlockSize = 2000, power = 6, minModuleSize = 30,
+    deepSplit = 2, 
+    pamRespectsDendro = FALSE, 
+    mergeCutHeight = 0.25, numericLabels = TRUE,
+    minKMEtoStay = 0,
+    saveTOMs = TRUE, verbose = 5)
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.2c-4
+#
+#=====================================================================================
+
+
+load(file = "Consensus-NetworkConstruction-auto.RData")
+bwLabels = matchLabels(bnet$colors, moduleLabels, pThreshold = 1e-7);
+bwColors = labels2colors(bwLabels)
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.2c-5
+#
+#=====================================================================================
+
+
+# Here we show a more flexible way of plotting several trees and colors on one page
+sizeGrWindow(12,6)
+pdf(file = "Plots/BlockwiseGeneDendrosAndColors.pdf", wi = 12, he = 6);
+# Use the layout function for more involved screen sectioning
+layout(matrix(c(1:4), 2, 2), heights = c(0.8, 0.2), widths = c(1,1))
+#layout.show(4);
+nBlocks = length(bnet$dendrograms)
+# Plot the dendrogram and the module colors underneath for each block
+for (block in 1:nBlocks)
+    plotDendroAndColors(bnet$dendrograms[[block]], moduleColors[bnet$blockGenes[[block]]],
+                        "Module colors", 
+                        main = paste("Gene dendrogram and module colors in block", block), 
+                        dendroLabels = FALSE, hang = 0.03,
+                        addGuide = TRUE, guideHang = 0.05,
+                        setLayout = FALSE)
+dev.off();
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.2c-6
+#
+#=====================================================================================
+
+
+sizeGrWindow(12,9);
+pdf(file="Plots/SingleDendro-BWColors.pdf", wi = 12, he = 9);
+plotDendroAndColors(consTree,
+                    cbind(moduleColors, bwColors),
+                    c("Single block", "Blockwise"),
+                    dendroLabels = FALSE, hang = 0.03,
+                    addGuide = TRUE, guideHang = 0.05,
+                    main = "Single block consensus gene dendrogram and module colors")
+dev.off();
+
+#===5.2.3 Relating the consensus modules to female set-specific modules (this section requires the results of Section 2.a of the female turorial)
+
+#=====================================================================================
+#
+#  Code chunk5.2.3-1
+#
+#=====================================================================================
+
+# The following setting is important, do not omit.
+options(stringsAsFactors = FALSE);
+# Load the data saved in the first part
+lnames = load(file = "Consensus-dataInput.RData");
+#The variable lnames contains the names of loaded variables.
+lnames
+# Load the results of network analysis, tutorial part 2.a
+lnames = load(file = "Consensus-NetworkConstruction-auto.RData");
+lnames
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.3-2
+#
+#=====================================================================================
+
+
+lnames = load("../Mouse-Female/FemaleLiver-02-networkConstruction-auto.RData")
+lnames
+# Rename variables to avoid conflicts
+femaleLabels = moduleLabels;
+femaleColors = moduleColors;
+femaleTree = geneTree;
+femaleMEs = orderMEs(MEs, greyName = "ME0");
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.3-3
+#
+#=====================================================================================
+
+
+lnames = load("Consensus-NetworkConstruction-auto.RData")
+lnames
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.3-4
+#
+#=====================================================================================
+
+
+# Isolate the module labels in the order they appear in ordered module eigengenes
+femModuleLabels = substring(names(femaleMEs), 3)
+consModuleLabels = substring(names(consMEs[[1]]$data), 3)
+# Convert the numeric module labels to color labels
+femModules = labels2colors(as.numeric(femModuleLabels))
+consModules = labels2colors(as.numeric(consModuleLabels))
+# Numbers of female and consensus modules
+nFemMods = length(femModules)
+nConsMods = length(consModules)
+# Initialize tables of p-values and of the corresponding counts
+pTable = matrix(0, nrow = nFemMods, ncol = nConsMods);
+CountTbl = matrix(0, nrow = nFemMods, ncol = nConsMods);
+# Execute all pairwaise comparisons
+for (fmod in 1:nFemMods)
+    for (cmod in 1:nConsMods)
+    {
+        femMembers = (femaleColors == femModules[fmod]);
+        consMembers = (moduleColors == consModules[cmod]);
+        pTable[fmod, cmod] = -log10(fisher.test(femMembers, consMembers, alternative = "greater")$p.value);
+        CountTbl[fmod, cmod] = sum(femaleColors == femModules[fmod] & moduleColors ==
+                                       consModules[cmod])
+    }
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.3-5
+#
+#=====================================================================================
+
+
+# Truncate p values smaller than 10^{-50} to 10^{-50} 
+pTable[is.infinite(pTable)] = 1.3*max(pTable[is.finite(pTable)]);
+pTable[pTable>50 ] = 50 ;
+# Marginal counts (really module sizes)
+femModTotals = apply(CountTbl, 1, sum)
+consModTotals = apply(CountTbl, 2, sum)
+# Actual plotting
+sizeGrWindow(10,7 );
+pdf(file = "Plots/ConsensusVsFemaleModules.pdf", wi = 10, he = 7);
+par(mfrow=c(1,1));
+par(cex = 1.0);
+par(mar=c(8, 10.4, 2.7, 1)+0.3);
+# Use function labeledHeatmap to produce the color-coded table with all the trimmings
+labeledHeatmap(Matrix = pTable,
+               xLabels = paste(" ", consModules),
+               yLabels = paste(" ", femModules),
+               colorLabels = TRUE,
+               xSymbols = paste("Cons ", consModules, ": ", consModTotals, sep=""),
+               ySymbols = paste("Fem ", femModules, ": ", femModTotals, sep=""),
+               textMatrix = CountTbl,
+               colors = greenWhiteRed(100)[50:100],
+               main = "Correspondence of Female set-specific and Female-Male consensus modules",
+               cex.text = 1.0, cex.lab = 1.0, setStdMargins = FALSE);
+dev.off();
+
+#====5.2.4 Relating consensus module to external microarray sample traits and exporting the results of network analysis
+
+#=====================================================================================
+#
+#  Code chunk5.2.4-1
+#
+#=====================================================================================
+
+
+# The following setting is important, do not omit.
+options(stringsAsFactors = FALSE);
+# Load the data saved in the first part
+lnames = load(file = "Consensus-dataInput.RData");
+#The variable lnames contains the names of loaded variables.
+lnames
+# Also load results of network analysis
+lnames = load(file = "Consensus-NetworkConstruction-auto.RData");
+lnames
+exprSize = checkSets(multiExpr);
+nSets = exprSize$nSets;
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.4-2
+#
+#=====================================================================================
+
+
+# Set up variables to contain the module-trait correlations
+moduleTraitCor = list();
+moduleTraitPvalue = list();
+# Calculate the correlations
+for (set in 1:nSets)
+{
+    moduleTraitCor[[set]] = cor(consMEs[[set]]$data, Traits[[set]]$data, use = "p");
+    moduleTraitPvalue[[set]] = corPvalueFisher(moduleTraitCor[[set]], exprSize$nSamples[set]);
+}
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.4-3
+#
+#=====================================================================================
+
+
+# Convert numerical lables to colors for labeling of modules in the plot
+MEColors = labels2colors(as.numeric(substring(names(consMEs[[1]]$data), 3)));
+MEColorNames = paste("ME", MEColors, sep="");
+# Open a suitably sized window (the user should change the window size if necessary)
+sizeGrWindow(10,7)
+pdf(file = "Plots/ModuleTraitRelationships-female.pdf", wi = 10, he = 7);
+# Plot the module-trait relationship table for set number 1
+set = 1
+textMatrix =  paste(signif(moduleTraitCor[[set]], 2), "\n(",
+                    signif(moduleTraitPvalue[[set]], 1), ")", sep = "");
+dim(textMatrix) = dim(moduleTraitCor[[set]])
+par(mar = c(6, 8.8, 3, 2.2));
+labeledHeatmap(Matrix = moduleTraitCor[[set]],
+               xLabels = names(Traits[[set]]$data),
+               yLabels = MEColorNames,
+               ySymbols = MEColorNames,
+               colorLabels = FALSE,
+               colors = greenWhiteRed(50),
+               textMatrix = textMatrix,
+               setStdMargins = FALSE,
+               cex.text = 0.5,
+               zlim = c(-1,1),
+               main = paste("Module--trait relationships in", setLabels[set]))
+dev.off();
+# Plot the module-trait relationship table for set number 2
+set = 2
+textMatrix =  paste(signif(moduleTraitCor[[set]], 2), "\n(",
+                    signif(moduleTraitPvalue[[set]], 1), ")", sep = "");
+dim(textMatrix) = dim(moduleTraitCor[[set]])
+sizeGrWindow(10,7)
+pdf(file = "Plots/ModuleTraitRelationships-male.pdf", wi = 10, he = 7);
+par(mar = c(6, 8.8, 3, 2.2));
+labeledHeatmap(Matrix = moduleTraitCor[[set]],
+               xLabels = names(Traits[[set]]$data),
+               yLabels = MEColorNames,
+               ySymbols = MEColorNames,
+               colorLabels = FALSE,
+               colors = greenWhiteRed(50),
+               textMatrix = textMatrix,
+               setStdMargins = FALSE,
+               cex.text = 0.5,
+               zlim = c(-1,1),
+               main = paste("Module--trait relationships in", setLabels[set]))
+dev.off();
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.4-4
+#
+#=====================================================================================
+
+
+# Initialize matrices to hold the consensus correlation and p-value
+consensusCor = matrix(NA, nrow(moduleTraitCor[[1]]), ncol(moduleTraitCor[[1]]));
+consensusPvalue = matrix(NA, nrow(moduleTraitCor[[1]]), ncol(moduleTraitCor[[1]]));
+# Find consensus negative correlations
+negative = moduleTraitCor[[1]] < 0 & moduleTraitCor[[2]] < 0;
+consensusCor[negative] = pmax(moduleTraitCor[[1]][negative], moduleTraitCor[[2]][negative]);
+consensusPvalue[negative] = pmax(moduleTraitPvalue[[1]][negative], moduleTraitPvalue[[2]][negative]);
+# Find consensus positive correlations
+positive = moduleTraitCor[[1]] > 0 & moduleTraitCor[[2]] > 0;
+consensusCor[positive] = pmin(moduleTraitCor[[1]][positive], moduleTraitCor[[2]][positive]);
+consensusPvalue[positive] = pmax(moduleTraitPvalue[[1]][positive], moduleTraitPvalue[[2]][positive]);
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.4-5
+#
+#=====================================================================================
+
+
+textMatrix =  paste(signif(consensusCor, 2), "\n(",
+                    signif(consensusPvalue, 1), ")", sep = "");
+dim(textMatrix) = dim(moduleTraitCor[[set]])
+sizeGrWindow(10,7)
+pdf(file = "Plots/ModuleTraitRelationships-consensus.pdf", wi = 10, he = 7);
+par(mar = c(6, 8.8, 3, 2.2));
+labeledHeatmap(Matrix = consensusCor,
+               xLabels = names(Traits[[set]]$data),
+               yLabels = MEColorNames,
+               ySymbols = MEColorNames,
+               colorLabels = FALSE,
+               colors = greenWhiteRed(50),
+               textMatrix = textMatrix,
+               setStdMargins = FALSE,
+               cex.text = 0.5,
+               zlim = c(-1,1),
+               main = paste("Consensus module--trait relationships across\n",
+                            paste(setLabels, collapse = " and ")))
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.4-6
+#
+#=====================================================================================
+
+
+file = "GeneAnnotation.csv"
+annot = read.csv(file = file);
+# Match probes in the data set to the probe IDs in the annotation file 
+probes = names(multiExpr[[1]]$data)
+probes2annot = match(probes, annot$substanceBXH)
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.4-7
+#
+#=====================================================================================
+
+
+consMEs.unord = multiSetMEs(multiExpr, universalColors = moduleLabels, excludeGrey = TRUE)
+GS = list();
+kME = list();
+for (set in 1:nSets)
+{
+    GS[[set]] = corAndPvalue(multiExpr[[set]]$data, Traits[[set]]$data);
+    kME[[set]] = corAndPvalue(multiExpr[[set]]$data, consMEs.unord[[set]]$data);
+}
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.4-8
+#
+#=====================================================================================
+
+
+GS.metaZ = (GS[[1]]$Z + GS[[2]]$Z)/sqrt(2);
+kME.metaZ = (kME[[1]]$Z + kME[[2]]$Z)/sqrt(2);
+GS.metaP = 2*pnorm(abs(GS.metaZ), lower.tail = FALSE);
+kME.metaP = 2*pnorm(abs(kME.metaZ), lower.tail = FALSE);
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.4-9
+#
+#=====================================================================================
+
+
+GSmat = rbind(GS[[1]]$cor, GS[[2]]$cor, GS[[1]]$p, GS[[2]]$p, GS.metaZ, GS.metaP);
+nTraits = checkSets(Traits)$nGenes
+traitNames = colnames(Traits[[1]]$data)
+dim(GSmat) = c(nGenes, 6*nTraits)
+rownames(GSmat) = probes;
+colnames(GSmat) = spaste(
+    c("GS.set1.", "GS.set2.", "p.GS.set1.", "p.GS.set2.", "Z.GS.meta.", "p.GS.meta"),
+    rep(traitNames, rep(6, nTraits)))
+# Same code for kME:
+kMEmat = rbind(kME[[1]]$cor, kME[[2]]$cor, kME[[1]]$p, kME[[2]]$p, kME.metaZ, kME.metaP);
+MEnames = colnames(consMEs.unord[[1]]$data);
+nMEs = checkSets(consMEs.unord)$nGenes
+dim(kMEmat) = c(nGenes, 6*nMEs)
+rownames(kMEmat) = probes;
+colnames(kMEmat) = spaste(
+    c("kME.set1.", "kME.set2.", "p.kME.set1.", "p.kME.set2.", "Z.kME.meta.", "p.kME.meta"),
+    rep(MEnames, rep(6, nMEs)))
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.4-10
+#
+#=====================================================================================
+
+
+info = data.frame(Probe = probes, GeneSymbol = annot$gene_symbol[probes2annot],
+                  EntrezID = annot$LocusLinkID[probes2annot],
+                  ModuleLabel = moduleLabels,
+                  ModuleColor = labels2colors(moduleLabels),
+                  GSmat,
+                  kMEmat);
+write.csv(info, file = "consensusAnalysis-CombinedNetworkResults.csv",
+          row.names = FALSE, quote = FALSE);
+
+#==5.2.5 Studying and comparing the relationships among modules and traits between the two data sets, including the visualization of consensus eigengene networks and the results of the differential analysis
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.5-1
+#
+#=====================================================================================
+# The following setting is important, do not omit.
+options(stringsAsFactors = FALSE);
+# Basic settings: we work with two data sets
+nSets = 2;
+# For easier labeling of plots, create a vector holding descriptive names of the two sets.
+setLabels = c("Female liver", "Male liver")
+shortLabels = c("Female", "Male")
+# Load the data saved in the first part
+lnames = load(file = "Consensus-dataInput.RData");
+#The variable lnames contains the names of loaded variables.
+lnames
+# Load the results of network analysis, tutorial part 2.a
+lnames = load(file = "Consensus-NetworkConstruction-auto.RData");
+lnames
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.5-2
+#
+#=====================================================================================
+
+
+# Create a variable weight that will hold just the body weight of mice in both sets
+weight = vector(mode = "list", length = nSets);
+for (set in 1:nSets)
+{
+    weight[[set]] = list(data = as.data.frame(Traits[[set]]$data$weight_g));
+    names(weight[[set]]$data) = "weight"
+}
+# Recalculate consMEs to give them color names
+consMEsC = multiSetMEs(multiExpr, universalColors = moduleColors);
+# We add the weight trait to the eigengenes and order them by consesus hierarchical clustering:
+MET = consensusOrderMEs(addTraitToMEs(consMEsC, weight));
+
+
+#=====================================================================================
+#
+#  Code chunk5.2.5-3
+#
+#=====================================================================================
+
+
+sizeGrWindow(8,10);
+pdf(file = "Plots/EigengeneNetworks.pdf", width= 8, height = 10);
+par(cex = 0.9)
+plotEigengeneNetworks(MET, setLabels, marDendro = c(0,2,2,1), marHeatmap = c(3,3,2,1),
+                      zlimPreservation = c(0.5, 1), xLabelsAngle = 90)
+dev.off();
+
+
+########################################################################################
+#
+# 5.3 Analysis of simulated data
+#  https://labs.genetics.ucla.edu/horvath/htdocs/CoexpressionNetwork/Rpackages/WGCNA/Tutorials/
+#
+########################################################################################
+
+#===5.3.1 Simulation of expression and trait data============
+
+#=====================================================================================
+#
+#  Code chunk5.3.1-1
+#
+#=====================================================================================
+options(stringsAsFactors = FALSE);
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.1-2
+#
+#=====================================================================================
+
+
+# Here are input parameters of the simulation model
+# number of samples or microarrays in the training data
+no.obs=50
+# now we specify the true measures of eigengene significance
+# recall that ESturquoise=cor(y,MEturquoise)
+ESturquoise=0;   ESbrown= -.6;
+ESgreen=.6;ESyellow=0
+# Note that we donate specify the eigengene significance of the blue module
+# since it is highly correlated with the turquoise module.
+ESvector=c(ESturquoise,ESbrown,ESgreen,ESyellow)
+# number of genes 
+nGenes1=3000
+# proportion of genes in the turquoise, blue, brown, green, and yellow module #respectively.
+simulateProportions1=c(0.2,0.15, 0.08, 0.06, 0.04)
+# Note that the proportions donate add up to 1. The remaining genes will be colored grey,
+# ie the grey genes are non-module genes.
+# set the seed of the random number generator. As a homework exercise change this seed.
+set.seed(1)
+#Step 1: simulate a module eigengene network.
+# Training Data Set I
+MEgreen=rnorm(no.obs)
+scaledy=MEgreen*ESgreen+sqrt(1-ESgreen^2)*rnorm(no.obs)
+y=ifelse( scaledy>median(scaledy),2,1)
+MEturquoise= ESturquoise*scaledy+sqrt(1-ESturquoise^2)*rnorm(no.obs)
+# we simulate a strong dependence between MEblue and MEturquoise
+MEblue= .6*MEturquoise+ sqrt(1-.6^2) *rnorm(no.obs)
+MEbrown= ESbrown*scaledy+sqrt(1-ESbrown^2)*rnorm(no.obs)
+MEyellow= ESyellow*scaledy+sqrt(1-ESyellow^2)*rnorm(no.obs)
+ModuleEigengeneNetwork1=data.frame(y,MEturquoise,MEblue,MEbrown,MEgreen, MEyellow)
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.1-3
+#
+#=====================================================================================
+
+
+dat1=simulateDatExpr5Modules(MEturquoise=ModuleEigengeneNetwork1$MEturquoise,
+                             MEblue=ModuleEigengeneNetwork1$MEblue,
+                             MEbrown=ModuleEigengeneNetwork1$MEbrown,
+                             MEyellow=ModuleEigengeneNetwork1$MEyellow,
+                             MEgreen=ModuleEigengeneNetwork1$MEgreen, 
+                             nGenes=nGenes1, 
+                             simulateProportions=simulateProportions1)
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.1-4
+#
+#=====================================================================================
+
+
+datExpr = dat1$datExpr;
+truemodule = dat1$truemodule;
+datME = dat1$datME;
+attach(ModuleEigengeneNetwork1)
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.1-5
+#
+#=====================================================================================
+
+
+table(truemodule)
+dim(datExpr)
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.1-6
+#
+#=====================================================================================
+
+
+datExpr=data.frame(datExpr)
+ArrayName=paste("Sample",1:dim(datExpr)[[1]], sep="" )   
+# The following code is useful for outputting the simulated data 
+GeneName=paste("Gene",1:dim(datExpr)[[2]], sep="" )   
+dimnames(datExpr)[[1]]=ArrayName
+dimnames(datExpr)[[2]]=GeneName
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.1-7
+#
+#=====================================================================================
+
+
+rm(dat1); collectGarbage();
+# The following command will save all variables defined in the current session.
+save.image("Simulated-dataSimulation.RData");
+
+
+
+#5.3.2 Loading of expression data, an alternative to data simulation, provided to illustrate data loading of real data
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.2-1
+#
+#=====================================================================================
+
+# The following setting is important, do not omit.
+options(stringsAsFactors = FALSE);
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.2-2
+#
+#=====================================================================================
+
+
+datGeneSummary=read.csv("GeneSummaryTutorial.csv")
+datTraits=read.csv("TraitsTutorial.csv")
+datMicroarrays=read.csv("MicroarrayDataTutorial.csv")
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.2-3
+#
+#=====================================================================================
+
+
+# This vector contains the microarray sample names
+ArrayName= names(data.frame(datMicroarrays[,-1]))
+# This vector contains the gene names
+GeneName= datMicroarrays$GeneName
+# We transpose the data so that the rows correspond to samples and the columns correspond to genes
+# Since the first column contains the gene names, we exclude it.
+datExpr=data.frame(t(datMicroarrays[,-1]))
+names(datExpr)=datMicroarrays[,1]
+dimnames(datExpr)[[1]]=names(data.frame(datMicroarrays[,-1]))
+#Also, since we simulated the data, we know the true module color:
+truemodule= datGeneSummary$truemodule
+rm(datMicroarrays)
+collectGarbage()
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.2-4
+#
+#=====================================================================================
+
+
+# First, make sure that the array names in the file datTraits line up with those in the microarray data 
+table( dimnames(datExpr)[[1]]==datTraits$ArrayName)
+# Next, define the microarray sample trait 
+y=datTraits$y
+
+
+#====5.3.3 Basic data preprocessing illustrates rudimentary techniques for handling missing data and removing outliers
+
+#=====================================================================================
+#
+#  Code chunk5.3.3-1
+#
+#=====================================================================================
+
+
+# The following setting is important, do not omit.
+options(stringsAsFactors = FALSE);
+# Load the previously saved data
+load("Simulated-dataSimulation.RData");
+attach(ModuleEigengeneNetwork1)
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.3-2
+#
+#=====================================================================================
+
+
+meanExpressionByArray=apply( datExpr,1,mean, na.rm=T)  
+NumberMissingByArray=apply( is.na(data.frame(datExpr)),1, sum)  
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.3-3
+#
+#=====================================================================================
+
+
+sizeGrWindow(9, 5)
+barplot(meanExpressionByArray,
+        xlab = "Sample", ylab = "Mean expression",
+        main ="Mean expression across samples",
+        names.arg = c(1:50), cex.names = 0.7)
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.3-4
+#
+#=====================================================================================
+
+
+# Keep only arrays containing less than 500 missing entries
+KeepArray= NumberMissingByArray<500
+table(KeepArray)
+datExpr=datExpr[KeepArray,]
+y=y[KeepArray]
+ArrayName[KeepArray]
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.3-5
+#
+#=====================================================================================
+
+
+NumberMissingByGene =apply( is.na(data.frame(datExpr)),2, sum)
+# One could do a barplot(NumberMissingByGene), but the barplot is empty in this case.
+# It may be better to look at the numbers of missing samples using the summary method:
+summary(NumberMissingByGene)
+# Calculate the variances of the probes and the number of present entries
+variancedatExpr=as.vector(apply(as.matrix(datExpr),2,var, na.rm=T))
+no.presentdatExpr=as.vector(apply(!is.na(as.matrix(datExpr)),2, sum) )
+# Another way of summarizing the number of pressent entries
+table(no.presentdatExpr)
+# Keep only genes whose variance is non-zero and have at least 4 present entries
+KeepGenes= variancedatExpr>0 & no.presentdatExpr>=4
+table(KeepGenes)
+datExpr=datExpr[, KeepGenes]
+GeneName=GeneName[KeepGenes]
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.3-6
+#
+#=====================================================================================
+
+
+sizeGrWindow(9, 5)
+plotClusterTreeSamples(datExpr=datExpr, y=y)
+
+#==5.3.4 Standard gene screening illustrates gene selection based on Pearson correlation and shows that the results are not satisfactory
+
+#=====================================================================================
+#
+#  Code chunk5.3.4-1
+#
+#=====================================================================================
+
+# The following setting is important, do not omit.
+options(stringsAsFactors = FALSE);
+# Load the previously saved data
+load("Simulated-dataSimulation.RData");
+attach(ModuleEigengeneNetwork1)
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.4-2
+#
+#=====================================================================================
+
+
+GS1= as.numeric(cor(y, datExpr, use="p"))
+# Network terminology: GS1 will be referred to as signed gene significance measure
+p.Standard=corPvalueFisher(GS1, nSamples =length(y) )
+# since the q-value function has problems with missing data, we use the following trick
+p.Standard2=p.Standard
+p.Standard2[is.na(p.Standard)]=1
+q.Standard=qvalue(p.Standard2)$qvalues
+# Form a data frame to hold the results
+StandardGeneScreeningResults=data.frame(GeneName,PearsonCorrelation=GS1, p.Standard, q.Standard)
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.4-3
+#
+#=====================================================================================
+
+
+NoiseGeneIndicator=is.element( truemodule, c("turquoise", "blue", "yellow", "grey"))+.0
+SignalGeneIndicator=1-NoiseGeneIndicator
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.4-4
+#
+#=====================================================================================
+
+
+table(q.Standard<.20)
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.4-5
+#
+#=====================================================================================
+
+
+mean(NoiseGeneIndicator[q.Standard<=0.20]) 
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.4-6
+#
+#=====================================================================================
+
+
+save.image(file = "Simulated-StandardScreening.RData")
+
+#==5.3.5 Construction of a weighted gene co-expression network and network modules illustrated step-by-step; includes a discussion of alternate clustering techniques
+
+#=====================================================================================
+#
+#  Code chunk5.3.5-1
+#
+#=====================================================================================
+
+# Load additional necessary packages
+library(cluster)
+# The following setting is important, do not omit.
+options(stringsAsFactors = FALSE);
+# Load the previously saved data
+load("Simulated-StandardScreening.RData"); 
+attach(ModuleEigengeneNetwork1)
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.5-2
+#
+#=====================================================================================
+
+
+# here we define the adjacency matrix using soft thresholding with beta=6
+ADJ1=abs(cor(datExpr,use="p"))^6
+# When you have relatively few genes (<5000) use the following code
+k=as.vector(apply(ADJ1,2,sum, na.rm=T))
+# When you have a lot of genes use the following code
+k=softConnectivity(datE=datExpr,power=6) 
+# Plot a histogram of k and a scale free topology plot
+sizeGrWindow(10,5)
+par(mfrow=c(1,2))
+hist(k)
+scaleFreePlot(k, main="Check scale free topology\n")
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.5-3
+#
+#=====================================================================================
+
+
+datExpr=datExpr[, rank(-k,ties.method="first" )<=3600]
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.5-4
+#
+#=====================================================================================
+
+
+# Turn adjacency into a measure of dissimilarity
+dissADJ=1-ADJ1
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.5-5
+#
+#=====================================================================================
+
+
+dissTOM=TOMdist(ADJ1)
+collectGarbage()
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.5-6
+#
+#=====================================================================================
+
+
+pam4=pam(as.dist(dissADJ), 4)
+pam5=pam(as.dist(dissADJ), 5)
+pam6=pam(as.dist(dissADJ), 6)
+# Cross-tabulte the detected and the true (simulated) module membership:
+table(pam4$clustering, truemodule)
+table(pam5$clustering, truemodule)
+table(pam6$clustering, truemodule)
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.5-7
+#
+#=====================================================================================
+
+
+pamTOM4=pam(as.dist(dissTOM), 4)
+pamTOM5=pam(as.dist(dissTOM), 5)
+pamTOM6=pam(as.dist(dissTOM), 6)
+# Cross-tabulte the detected and the true (simulated) module membership:
+table(pamTOM4$clustering, truemodule)
+table(pamTOM5$clustering, truemodule)
+table(pamTOM6$clustering, truemodule)
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.5-8
+#
+#=====================================================================================
+
+
+hierADJ=hclust(as.dist(dissADJ), method="average" )
+# Plot the resulting clustering tree together with the true color assignment
+sizeGrWindow(10,5);
+plotDendroAndColors(hierADJ, colors = data.frame(truemodule), dendroLabels = FALSE, hang = 0.03, 
+                    main = "Gene hierarchical clustering dendrogram and simulated module colors" )
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.5-9
+#
+#=====================================================================================
+
+
+colorStaticADJ=as.character(cutreeStaticColor(hierADJ, cutHeight=.99, minSize=20))
+# Plot the dendrogram with module colors
+sizeGrWindow(10,5);
+plotDendroAndColors(hierADJ, colors = data.frame(truemodule, colorStaticADJ),
+                    dendroLabels = FALSE, abHeight = 0.99,
+                    main = "Gene dendrogram and module colors")
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.5-10
+#
+#=====================================================================================
+
+
+branch.number=cutreeDynamic(hierADJ,method="tree")
+# This function transforms the branch numbers into colors
+colorDynamicADJ=labels2colors(branch.number )
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.5-11
+#
+#=====================================================================================
+
+
+colorDynamicHybridADJ=labels2colors(cutreeDynamic(hierADJ,distM= dissADJ, 
+                                                  cutHeight = 0.998, deepSplit=2, pamRespectsDendro = FALSE))
+
+# Plot results of all module detection methods together:
+sizeGrWindow(10,5)
+plotDendroAndColors(dendro = hierADJ, 
+                    colors=data.frame(truemodule, colorStaticADJ, 
+                                      colorDynamicADJ, colorDynamicHybridADJ), 
+                    dendroLabels = FALSE, marAll = c(0.2, 8, 2.7, 0.2),
+                    main = "Gene dendrogram and module colors")
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.5-12
+#
+#=====================================================================================
+
+
+# Calculate the dendrogram
+hierTOM = hclust(as.dist(dissTOM),method="average");
+# The reader should vary the height cut-off parameter h1 
+# (related to the y-axis of dendrogram) in the following
+colorStaticTOM = as.character(cutreeStaticColor(hierTOM, cutHeight=.99, minSize=20))
+colorDynamicTOM = labels2colors (cutreeDynamic(hierTOM,method="tree"))
+colorDynamicHybridTOM = labels2colors(cutreeDynamic(hierTOM, distM= dissTOM , cutHeight = 0.998,
+                                                    deepSplit=2, pamRespectsDendro = FALSE))
+# Now we plot the results
+sizeGrWindow(10,5)
+plotDendroAndColors(hierTOM, 
+                    colors=data.frame(truemodule, colorStaticTOM, 
+                                      colorDynamicTOM, colorDynamicHybridTOM), 
+                    dendroLabels = FALSE, marAll = c(1, 8, 3, 1),
+                    main = "Gene dendrogram and module colors, TOM dissimilarity")
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.5-13
+#
+#=====================================================================================
+
+
+tabStaticADJ=table(colorStaticADJ,truemodule)
+tabStaticTOM=table(colorStaticTOM,truemodule)
+tabDynamicADJ=table(colorDynamicADJ, truemodule)
+tabDynamicTOM=table(colorDynamicTOM,truemodule)
+tabDynamicHybridADJ =table(colorDynamicHybridADJ,truemodule)
+tabDynamicHybridTOM =table(colorDynamicHybridTOM,truemodule)
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.5-14
+#
+#=====================================================================================
+
+
+randIndex(tabStaticADJ,adjust=F)
+randIndex(tabStaticTOM,adjust=F)
+randIndex(tabDynamicADJ,adjust=F)
+randIndex(tabDynamicTOM,adjust=F)
+randIndex(tabDynamicHybridADJ ,adjust=F)
+randIndex(tabDynamicHybridTOM ,adjust=F)
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.5-15
+#
+#=====================================================================================
+
+
+colorh1= colorDynamicHybridTOM
+# remove the dissimilarities, adjacency matrices etc to free up space
+rm(ADJ1); rm(dissADJ);              
+collectGarbage()
+save.image("Simulated-NetworkConstruction.RData")
+
+#==5.3.6 Relating modules and module eigengenes to external data illustrates methods for relating modules to external microarray sample traits
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.6-1
+#
+#=====================================================================================
+
+
+# The following setting is important, do not omit.
+options(stringsAsFactors = FALSE);
+# Load the previously saved data
+load("Simulated-NetworkConstruction.RData"); 
+attach(ModuleEigengeneNetwork1)
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.6-2
+#
+#=====================================================================================
+
+
+datME=moduleEigengenes(datExpr,colorh1)$eigengenes
+signif(cor(datME, use="p"), 2)
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.6-3
+#
+#=====================================================================================
+
+
+dissimME=(1-t(cor(datME, method="p")))/2
+hclustdatME=hclust(as.dist(dissimME), method="average" )
+# Plot the eigengene dendrogram
+par(mfrow=c(1,1))
+plot(hclustdatME, main="Clustering tree based of the module eigengenes")
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.6-4
+#
+#=====================================================================================
+
+
+sizeGrWindow(8,9)
+plotMEpairs(datME,y=y)
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.6-5
+#
+#=====================================================================================
+
+
+signif(cor(datME, ModuleEigengeneNetwork1[,-1]),2)
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.6-6
+#
+#=====================================================================================
+
+
+sizeGrWindow(8,9)
+par(mfrow=c(3,1), mar=c(1, 2, 4, 1))
+which.module="turquoise"; 
+plotMat(t(scale(datExpr[,colorh1==which.module ]) ),nrgcols=30,rlabels=T,
+        clabels=T,rcols=which.module,
+        title=which.module )
+# for the second (blue) module we use
+which.module="blue";  
+plotMat(t(scale(datExpr[,colorh1==which.module ]) ),nrgcols=30,rlabels=T,
+        clabels=T,rcols=which.module,
+        title=which.module )
+which.module="brown"; 
+plotMat(t(scale(datExpr[,colorh1==which.module ]) ),nrgcols=30,rlabels=T,
+        clabels=T,rcols=which.module,
+        title=which.module )
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.6-7
+#
+#=====================================================================================
+
+
+sizeGrWindow(8,7);
+which.module="green"
+ME=datME[, paste("ME",which.module, sep="")]
+par(mfrow=c(2,1), mar=c(0.3, 5.5, 3, 2))
+plotMat(t(scale(datExpr[,colorh1==which.module ]) ),
+        nrgcols=30,rlabels=F,rcols=which.module,
+        main=which.module, cex.main=2)
+par(mar=c(5, 4.2, 0, 0.7))
+barplot(ME, col=which.module, main="", cex.main=2,
+        ylab="eigengene expression",xlab="array sample")
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.6-8
+#
+#=====================================================================================
+
+
+signif(cor(y,datME, use="p"),2)
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.6-9
+#
+#=====================================================================================
+
+
+cor.test(y, datME$MEbrown)
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.6-10
+#
+#=====================================================================================
+
+
+p.values = corPvalueStudent(cor(y,datME, use="p"), nSamples = length(y))
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.6-11
+#
+#=====================================================================================
+
+
+GS1=as.numeric(cor(y,datExpr, use="p"))
+GeneSignificance=abs(GS1)
+# Next module significance is defined as average gene significance.
+ModuleSignificance=tapply(GeneSignificance, colorh1, mean, na.rm=T)
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.6-12
+#
+#=====================================================================================
+
+
+sizeGrWindow(8,7)
+par(mfrow = c(1,1))
+plotModuleSignificance(GeneSignificance,colorh1)
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.6-13
+#
+#=====================================================================================
+
+
+collectGarbage()
+save.image("Simulated-RelatingToExt.RData")
+
+#5.3.7 Module membership, intramodular connectivity, and screening for 
+#intramodular hub genes illustrates using the intramodular connectivity 
+#to define measures of module membership and to screen for genes based on network information
+
+#=====================================================================================
+#
+#  Code chunk5.3.7-1
+#
+#=====================================================================================
+library(cluster)
+# The following setting is important, do not omit.
+options(stringsAsFactors = FALSE);
+# Load the previously saved data
+load("Simulated-RelatingToExt.RData"); 
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.7-2
+#
+#=====================================================================================
+
+
+ADJ1=abs(cor(datExpr,use="p"))^6
+Alldegrees1=intramodularConnectivity(ADJ1, colorh1)
+head(Alldegrees1)
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.7-3
+#
+#=====================================================================================
+
+
+colorlevels=unique(colorh1)
+sizeGrWindow(9,6)
+par(mfrow=c(2,as.integer(0.5+length(colorlevels)/2)))
+par(mar = c(4,5,3,1))
+for (i in c(1:length(colorlevels))) 
+{
+    whichmodule=colorlevels[[i]]; 
+    restrict1 = (colorh1==whichmodule);
+    verboseScatterplot(Alldegrees1$kWithin[restrict1], 
+                       GeneSignificance[restrict1], col=colorh1[restrict1],
+                       main=whichmodule, 
+                       xlab = "Connectivity", ylab = "Gene Significance", abline = TRUE)
+}
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.7-4
+#
+#=====================================================================================
+
+
+datKME=signedKME(datExpr, datME, outputColumnName="MM.")
+# Display the first few rows of the data frame
+head(datKME)
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.7-5
+#
+#=====================================================================================
+
+
+FilterGenes= abs(GS1)> .2 & abs(datKME$MM.brown)>.8
+table(FilterGenes)
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.7-6
+#
+#=====================================================================================
+
+
+dimnames(data.frame(datExpr))[[2]][FilterGenes]
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.7-7
+#
+#=====================================================================================
+
+
+sizeGrWindow(8,6)
+par(mfrow=c(2,2))
+# We choose 4 modules to plot: turquoise, blue, brown, green. 
+# For simplicity we write the code out explicitly for each module.
+which.color="turquoise"; 
+restrictGenes=colorh1==which.color 
+verboseScatterplot(Alldegrees1$kWithin[ restrictGenes], 
+                   (datKME[restrictGenes, paste("MM.", which.color, sep="")])^6,
+                   col=which.color, 
+                   xlab="Intramodular Connectivity", 
+                   ylab="(Module Membership)^6")
+
+which.color="blue"; 
+restrictGenes=colorh1==which.color
+verboseScatterplot(Alldegrees1$kWithin[ restrictGenes],
+                   (datKME[restrictGenes, paste("MM.", which.color, sep="")])^6,
+                   col=which.color,
+                   xlab="Intramodular Connectivity",
+                   ylab="(Module Membership)^6")
+
+which.color="brown"; 
+restrictGenes=colorh1==which.color
+verboseScatterplot(Alldegrees1$kWithin[ restrictGenes],
+                   (datKME[restrictGenes, paste("MM.", which.color, sep="")])^6,
+                   col=which.color,
+                   xlab="Intramodular Connectivity",
+                   ylab="(Module Membership)^6")
+
+which.color="green";
+restrictGenes=colorh1==which.color 
+verboseScatterplot(Alldegrees1$kWithin[ restrictGenes], 
+                   (datKME[restrictGenes, paste("MM.", which.color, sep="")])^6,
+                   col=which.color, 
+                   xlab="Intramodular Connectivity", 
+                   ylab="(Module Membership)^6")
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.7-8
+#
+#=====================================================================================
+
+
+NS1=networkScreening(y=y, datME=datME, datExpr=datExpr,
+                     oddPower=3, blockSize=1000, minimumSampleSize=4,
+                     addMEy=TRUE, removeDiag=FALSE, weightESy=0.5)
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.7-9
+#
+#=====================================================================================
+
+
+# network screening analysis
+mean(NoiseGeneIndicator[rank(NS1$p.Weighted,ties.method="first")<=100])
+# standard analysis based on the correlation p-values (or Student T test)
+mean(NoiseGeneIndicator[rank(NS1$p.Standard,ties.method="first")<=100]) 
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.7-10
+#
+#=====================================================================================
+
+
+topNumbers=c(10,20,50,100)
+for (i in c(1:length(topNumbers)) ) 
+{
+    print(paste("Proportion of noise genes in the top", topNumbers[i], "list"))
+    WGCNApropNoise=mean(NoiseGeneIndicator[rank(NS1$p.Weighted,ties.method="first")<=topNumbers[i]])
+    StandardpropNoise=mean(NoiseGeneIndicator[rank(NS1$p.Standard,ties.method="first")<=topNumbers[i]])
+    print(paste("WGCNA, proportion of noise=", WGCNApropNoise, 
+                ", Standard, prop. noise=", StandardpropNoise))
+    if (WGCNApropNoise< StandardpropNoise) print("WGCNA wins")
+    if (WGCNApropNoise==StandardpropNoise) print("both methods tie")
+    if (WGCNApropNoise>StandardpropNoise) print("standard screening wins")
+} 
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.7-11
+#
+#=====================================================================================
+
+
+rm(dissTOM); collectGarbage()
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.7-12
+#
+#=====================================================================================
+
+
+#Form a data frame containing standard and network screening results
+CorPrediction1=data.frame(GS1,NS1$cor.Weighted)
+cor.Weighted=NS1$cor.Weighted
+# Plot the comparison
+sizeGrWindow(8, 6)
+verboseScatterplot(cor.Weighted, GS1,
+                   main="Network-based weighted correlation versus Pearson correlation\n",
+                   col=truemodule, cex.main = 1.2)
+abline(0,1)
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.7-13
+#
+#=====================================================================================
+
+
+set.seed(2)
+nSamples2=2000
+MEgreen=rnorm(nSamples2)
+scaledy2=MEgreen*ESgreen+sqrt(1-ESgreen^2)*rnorm(nSamples2)
+y2=ifelse( scaledy2>median(scaledy2),2,1)
+MEturquoise= ESturquoise*scaledy2+sqrt(1-ESturquoise^2)*rnorm(nSamples2)
+# we simulate a strong dependence between MEblue and MEturquoise
+MEblue= .6*MEturquoise+ sqrt(1-.6^2) *rnorm(nSamples2)
+MEbrown= ESbrown*scaledy2+sqrt(1-ESbrown^2)*rnorm(nSamples2)
+MEyellow= ESyellow*scaledy2+sqrt(1-ESyellow^2)*rnorm(nSamples2)
+# Put together a data frame of eigengenes
+ModuleEigengeneNetwork2=data.frame(y=y2,MEturquoise,MEblue,MEbrown,MEgreen, MEyellow)
+# Simulate the expression data
+dat2=simulateDatExpr5Modules(MEturquoise=ModuleEigengeneNetwork2$MEturquoise,
+                             MEblue=ModuleEigengeneNetwork2$MEblue,MEbrown=ModuleEigengeneNetwork2$MEbrown,
+                             MEyellow=ModuleEigengeneNetwork2$MEyellow,
+                             MEgreen=ModuleEigengeneNetwork2$MEgreen,simulateProportions=simulateProportions1, 
+                             nGenes=nGenes1)
+# recall that this is the signed gene significance in the training data
+GS1= as.numeric(cor(y, datExpr, use="p"))
+# the following is the signed gene significance in the test data
+GS2=as.numeric( cor(ModuleEigengeneNetwork2$y, dat2$datExpr, use="p"))
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.7-14
+#
+#=====================================================================================
+
+
+sizeGrWindow(8,6)
+par(mfrow=c(1,1))
+verboseScatterplot(GS1,GS2,
+                   main="Trait-based gene significance in test set vs. training set\n",
+                   xlab = "Training set gene significance",
+                   ylab = "Test set gene significance",
+                   col=truemodule, cex.main = 1.4)
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.7-15
+#
+#=====================================================================================
+
+
+EvaluationGeneScreening1 = corPredictionSuccess(
+    corPrediction = CorPrediction1, 
+    corTestSet=GS2,
+    topNumber=seq(from=20, to=500, length=30) )
+par(mfrow=c(2,2))
+listcomp = EvaluationGeneScreening1$meancorTestSetOverall
+matplot(x = listcomp$topNumber,
+        y = listcomp[,-1], 
+        main="Predicting positive and negative correlations",
+        ylab="mean cor, test data", 
+        xlab="top number of genes in the training data")
+listcomp= EvaluationGeneScreening1$meancorTestSetPositive
+matplot(x = listcomp$topNumber,
+        y = listcomp[,-1], 
+        main="Predicting positive correlations",
+        ylab="mean cor, test data", 
+        xlab="top number of genes in the training data")
+listcomp= EvaluationGeneScreening1$meancorTestSetNegative
+matplot(x = listcomp$topNumber,
+        y = listcomp[,-1], 
+        main = "Predicting negative correlations",
+        ylab = "mean cor, test data", 
+        xlab = "top number of genes in the training data")
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.7-16
+#
+#=====================================================================================
+
+
+relativeCorPredictionSuccess(corPredictionNew = NS1$cor.Weighted,
+                             corPredictionStandard = GS1, 
+                             corTestSet=GS2,
+                             topNumber=c(10,20,50,100,200,500) )
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.7-17
+#
+#=====================================================================================
+
+
+# Create a data frame holding the results of gene screening
+GeneResultsNetworkScreening=data.frame(GeneName=row.names(NS1), NS1)
+# Write the data frame into a file
+write.table(GeneResultsNetworkScreening, file="GeneResultsNetworkScreening.csv",
+            row.names=F,sep=",")
+# Output of eigengene information:
+datMEy = data.frame(y, datME)
+eigengeneSignificance = cor(datMEy, y);
+eigengeneSignificance[1,1] = (1+max(eigengeneSignificance[-1, 1]))/2
+eigengeneSignificance.pvalue = corPvalueStudent(eigengeneSignificance, nSamples = length(y))
+namesME=names(datMEy)
+# Form a summary data frame
+out1=data.frame(t(data.frame(eigengeneSignificance,
+                             eigengeneSignificance.pvalue, namesME, t(datMEy))))
+# Set appropriate row names
+dimnames(out1)[[1]][1]="EigengeneSignificance"
+dimnames(out1)[[1]][2]="EigengeneSignificancePvalue"
+dimnames(out1)[[1]][3]="ModuleEigengeneName"
+dimnames(out1)[[1]][-c(1:3)]=dimnames(datExpr)[[1]]
+# Write the data frame into a file
+write.table(out1, file="MEResultsNetworkScreening.csv", row.names=TRUE, col.names = TRUE, sep=",")
+# Display the first few rows:
+head(out1)
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.7-18
+#
+#=====================================================================================
+
+
+# Write out gene information
+GeneName=dimnames(datExpr)[[2]]
+GeneSummary=data.frame(GeneName, truemodule, SignalGeneIndicator,  NS1)
+write.table(GeneSummary, file="GeneSummaryTutorial.csv", row.names=F,sep=",")
+# here we output the module eigengenes and trait y without eigengene significances
+datTraits=data.frame(ArrayName, datMEy)
+dimnames(datTraits)[[2]][2:length(namesME)]=paste("Trait",  
+                                                  dimnames(datTraits)[[2]][2:length(namesME)], 
+                                                  sep=".")
+write.table(datTraits, file="TraitsTutorial.csv", row.names=F,sep=",")
+rm(datTraits)
+# here we output the simulated gene expression data
+MicroarrayData=data.frame(GeneName, t(datExpr))
+names(MicroarrayData)[-1]=ArrayName
+write.table(MicroarrayData, file="MicroarrayDataTutorial.csv", row.names=F,sep=",")
+rm(MicroarrayData)
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.7-19
+#
+#=====================================================================================
+
+
+# Perform network screening
+NS1GS=networkScreeningGS(datExpr=datExpr, datME = datME, GS=GS1)
+# Organize its results for easier plotting
+GSprediction1=data.frame(GS1,NS1GS$GS.Weighted)
+GS.Weighted=NS1GS$GS.Weighted
+# Plot a comparison between standard gene significance and network-weighted gene significance
+sizeGrWindow(8, 6)
+par(mfrow=c(1,1))
+verboseScatterplot(GS1, GS.Weighted, 
+                   main="Weighted gene significance vs. the standard GS\n",
+                   col=truemodule)
+abline(0,1)
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.7-20
+#
+#=====================================================================================
+
+
+EvaluationGeneScreeningGS = corPredictionSuccess(corPrediction=GSprediction1, corTestSet=GS2,
+                                                 topNumber=seq(from=20, to=500, length=30) )
+sizeGrWindow(8, 6)
+par(mfrow=c(2,2))
+listcomp= EvaluationGeneScreeningGS$meancorTestSetOverall
+matplot(x=listcomp$topNumber,
+        y=listcomp[,-1],
+        main="Predicting positive and negative correlations",
+        ylab="mean cor, test data",
+        xlab="top number of genes in the training data")
+listcomp= EvaluationGeneScreeningGS$meancorTestSetPositive
+matplot(x=listcomp$topNumber, 
+        y=listcomp[,-1], 
+        main="Predicting positive correlations",
+        ylab="mean cor, test data",
+        xlab="top number of genes in the training data")
+listcomp= EvaluationGeneScreeningGS$meancorTestSetNegative
+matplot(x=listcomp$topNumber,
+        y=listcomp[,-1],
+        main="Predicting negative correlations",
+        ylab="mean cor, test data",
+        xlab="top number of genes in the training data")
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.7-21
+#
+#=====================================================================================
+
+
+collectGarbage()
+save.image("Simulated-Screening.RData")
+
+
+#5.3.8 Visualization of gene networks=========
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.8-1
+#
+#=====================================================================================
+
+library(cluster)
+# The following setting is important, do not omit.
+options(stringsAsFactors = FALSE);
+# Load the previously saved data
+load("Simulated-RelatingToExt.RData"); 
+load("Simulated-Screening.RData")
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.8-2
+#
+#=====================================================================================
+
+
+cmd1=cmdscale(as.dist(dissTOM),2)
+sizeGrWindow(7, 6)
+par(mfrow=c(1,1))
+plot(cmd1, col=as.character(colorh1),  main="MDS plot",
+     xlab="Scaling Dimension 1", ylab="Scaling Dimension 2")
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.8-3
+#
+#=====================================================================================
+
+
+power=6
+color1=colorDynamicTOM
+restGenes= (color1 != "grey")
+diss1=1-TOMsimilarityFromExpr( datExpr[, restGenes], power = 6 )
+hier1=hclust(as.dist(diss1), method="average" )
+diag(diss1) = NA;
+sizeGrWindow(7,7)
+TOMplot(diss1^4, hier1, as.character(color1[restGenes]),
+        main = "TOM heatmap plot, module genes" )
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.8-4
+#
+#=====================================================================================
+
+
+power=6
+color1=colorDynamicTOM
+restGenes= (color1 != "grey")
+diss1=1-adjacency( datExpr[, restGenes], power = 6 )
+hier1=hclust(as.dist(diss1), method="average" )
+diag(diss1) = NA;
+sizeGrWindow(7,7)
+TOMplot(diss1^4, hier1, as.character(color1[restGenes]),
+        main = "Adjacency heatmap plot, module genes" )
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.8-5
+#
+#=====================================================================================
+
+
+sizeGrWindow(7,7)
+topList=rank(NS1$p.Weighted,ties.method="first")<=30
+gene.names= names(datExpr)[topList]
+# The following shows the correlations between the top genes
+plotNetworkHeatmap(datExpr, plotGenes = gene.names,
+                   networkType="signed", useTOM=FALSE,
+                   power=1, main="signed correlations")
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.8-6
+#
+#=====================================================================================
+
+
+sizeGrWindow(7,7)
+# The following shows the correlations between the top genes
+plotNetworkHeatmap(datExpr, plotGenes = gene.names,
+                   networkType="unsigned", useTOM=FALSE,
+                   power=1, main="signed correlations")
+
+
+#=====================================================================================
+#
+#  Code chunk5.3.8-7
+#
+#=====================================================================================
+
+
+sizeGrWindow(7,7)
+# The following shows the TOM heatmap in a signed network
+plotNetworkHeatmap(datExpr, plotGenes = gene.names,
+                   networkType="signed", useTOM=TRUE,
+                   power=12, main="C. TOM in a signed network")
+# The following shows the TOM heatmap in a unsigned network
+plotNetworkHeatmap(datExpr, plotGenes = gene.names,
+                   networkType="unsigned", useTOM=TRUE,
+                   power=6, main="D. TOM in an unsigned network")
 
 

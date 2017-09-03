@@ -38,8 +38,7 @@ if (Sys.info()[['sysname']]=="Darwin"){
 if (Sys.info()[['sysname']]=="Windows"){
         setwd("C:/Users/User/Dropbox/Public/Olivier/R/Danwei_StemCell/dataset");getwd();list.files()}
 
-# The following setting is important, do not omit.
-options(stringsAsFactors = FALSE);
+list_files <- read.csv("list_files.csv",row.names = 1)
 # Read in rnaseq_MicroArrayData or rnaseq_MicroArrayData_std
 rnaseq_MicroArrayData_std = read.csv("rnaseq_MicroArrayData_std.csv",row.names = 1);
 #colnames are changed, be careful. space is replaced by .
@@ -52,7 +51,10 @@ par(oma=c(2,2,2,2))
 
 #====4.1.2 Spearman correlation (required)=================================
 c <- cor(rnaseq_MicroArrayData_std, method="spearman") # or rnaseq_MicroArrayData_std
+diag(c) <-NA
 pheatmap(c,cex=1.05,
+#         cluster_rows=T,
+         cluster_cols = T,
          main ="Spearman correlation between all samples")
 
 ########################################################################################
